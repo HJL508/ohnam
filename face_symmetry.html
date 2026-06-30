@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>얼굴 대칭 & 황금비율 분석기</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --border: #262a33;
+    --fg: #e6e8ee;
+    --muted: #9aa0aa;
+    --primary: #d4af37; /* 황금색 */
+    --good: #22c55e;
+    --warn: #f59e0b;
+    --bad: #ef4444;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Pretendard", "Noto Sans KR", sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    min-height: 100vh;
+  }
+  header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+  }
+  header h1 {
+    margin: 0 0 4px 0;
+    font-size: 20px;
+    letter-spacing: -0.3px;
+  }
+  header p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .privacy {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 3px 8px;
+    background: rgba(34,197,94,.12);
+    color: var(--good);
+    font-size: 11px;
+    border-radius: 4px;
+    border: 1px solid rgba(34,197,94,.3);
+  }
+  main {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 16px;
+    padding: 16px;
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr; }
+  }
+  .video-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    position: relative;
+  }
+  .canvas-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    background: #000;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  #video, #overlay {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1); /* 거울 모드 */
+  }
+  #overlay { pointer-events: none; }
+  .controls {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+  button {
+    background: var(--primary);
+    color: #1a1305;
+    border: none;
+    padding: 9px 16px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  button.secondary {
+    background: transparent;
+    color: var(--fg);
+    border: 1px solid var(--border);
+  }
+  .status {
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .results { display: flex; flex-direction: column; gap: 12px; }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+  }
+  .card h3 {
+    margin: 0 0 10px 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .score-big {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--primary);
+    line-height: 1.1;
+  }
+  .score-grade {
+    font-size: 14px;
+    color: var(--fg);
+    margin-top: 4px;
+  }
+  .metric {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    font-size: 13px;
+    border-bottom: 1px solid var(--border);
+  }
+  .metric:last-child { border-bottom: none; }
+  .metric-label { color: var(--muted); }
+  .metric-value { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .bar {
+    width: 100%;
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 6px;
+  }
+  .bar-fill {
+    height: 100%;
+    background: var(--primary);
+    transition: width 0.3s;
+  }
+  .comment {
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--fg);
+    background: rgba(212,175,55,.08);
+    border-left: 2px solid var(--primary);
+    padding: 10px 12px;
+    border-radius: 4px;
+  }
+  .loading {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    text-align: center;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .spinner {
+    width: 28px; height: 28px;
+    border: 3px solid var(--border);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 8px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<header>
+  <h1>얼굴 대칭 & 황금비율 분석기</h1>
+  <p>카메라로 얼굴을 인식해 좌우 대칭과 황금비율(φ=1.618) 점수를 계산합니다.</p>
+  <span class="privacy">● 모든 분석은 브라우저에서만 처리 — 어떤 데이터도 저장/전송되지 않습니다</span>
+</header>
+
+<main>
+  <div class="video-panel">
+    <div class="canvas-wrap">
+      <video id="video" autoplay playsinline muted></video>
+      <canvas id="overlay"></canvas>
+      <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <div id="loadingText">얼굴 인식 모델 로딩 중...</div>
+      </div>
+    </div>
+    <div class="controls">
+      <button id="startBtn" disabled>카메라 시작</button>
+      <button id="freezeBtn" class="secondary" disabled>스냅 분석 (3초 평균)</button>
+      <button id="stopBtn" class="secondary" disabled>정지</button>
+    </div>
+    <div class="status" id="status">대기 중…</div>
+  </div>
+
+  <div class="results">
+    <div class="card">
+      <h3>종합 점수</h3>
+      <div class="score-big" id="totalScore">—</div>
+      <div class="score-grade" id="grade">얼굴을 카메라에 비춰주세요</div>
+      <div class="bar"><div class="bar-fill" id="totalBar" style="width:0%"></div></div>
+    </div>
+
+    <div class="card">
+      <h3>좌우 대칭</h3>
+      <div class="metric"><span class="metric-label">대칭 점수</span><span class="metric-value" id="symScore">—</span></div>
+      <div class="metric"><span class="metric-label">눈 비대칭</span><span class="metric-value" id="symEye">—</span></div>
+      <div class="metric"><span class="metric-label">입꼬리 비대칭</span><span class="metric-value" id="symMouth">—</span></div>
+      <div class="metric"><span class="metric-label">턱선 비대칭</span><span class="metric-value" id="symJaw">—</span></div>
+    </div>
+
+    <div class="card">
+      <h3>황금비율 (φ = 1.618)</h3>
+      <div class="metric"><span class="metric-label">황금비 점수</span><span class="metric-value" id="phiScore">—</span></div>
+      <div class="metric"><span class="metric-label">얼굴 길이/폭</span><span class="metric-value" id="phiFace">—</span></div>
+      <div class="metric"><span class="metric-label">상/중/하 3분할</span><span class="metric-value" id="phiThirds">—</span></div>
+      <div class="metric"><span class="metric-label">눈썹↔코 / 코↔입</span><span class="metric-value" id="phiNose">—</span></div>
+      <div class="metric"><span class="metric-label">입 폭 / 코 폭</span><span class="metric-value" id="phiMouth">—</span></div>
+    </div>
+
+    <div class="card">
+      <h3>한 줄 평</h3>
+      <div class="comment" id="comment">분석을 시작하면 재미있는 결과를 보여드려요.</div>
+    </div>
+  </div>
+</main>
+
+<!-- MediaPipe Face Mesh: 브라우저에서만 동작, 외부 서버로 영상이 전송되지 않습니다 -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+
+<script>
+  const video = document.getElementById('video');
+  const overlay = document.getElementById('overlay');
+  const ctx = overlay.getContext('2d');
+  const loading = document.getElementById('loading');
+  const loadingText = document.getElementById('loadingText');
+  const startBtn = document.getElementById('startBtn');
+  const freezeBtn = document.getElementById('freezeBtn');
+  const stopBtn = document.getElementById('stopBtn');
+  const statusEl = document.getElementById('status');
+
+  let camera = null;
+  let lastLandmarks = null;
+  let snapMode = false;
+  let snapSamples = [];
+  let snapTimer = null;
+
+  // ===== 황금비율 평가 함수 =====
+  // 비율 r 이 1.618에 얼마나 가까운지 0~100 점수화
+  const PHI = 1.61803398875;
+  function phiScore(ratio) {
+    if (!isFinite(ratio) || ratio <= 0) return 0;
+    // 1.618 기준 상대 오차
+    const err = Math.abs(ratio - PHI) / PHI;
+    // err=0 → 100, err=0.3 → 0
+    return Math.max(0, Math.min(100, (1 - err / 0.3) * 100));
+  }
+  // 1:1 대칭 — diff가 작을수록 100점
+  function symScore(diff, scale) {
+    if (!isFinite(diff)) return 0;
+    const norm = diff / scale; // 얼굴 폭 기준 정규화
+    return Math.max(0, Math.min(100, (1 - norm / 0.08) * 100));
+  }
+
+  function dist(a, b) {
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  }
+
+  // MediaPipe Face Mesh 468 landmark 인덱스
+  const LM = {
+    // 얼굴 외곽
+    chin: 152,
+    forehead: 10,
+    leftFace: 234,
+    rightFace: 454,
+    // 눈
+    leftEyeOuter: 33, leftEyeInner: 133,
+    rightEyeOuter: 263, rightEyeInner: 362,
+    // 코
+    noseTip: 1, noseBottom: 2,
+    noseLeft: 98, noseRight: 327,
+    noseBridgeTop: 168, // 눈썹 사이
+    // 입
+    mouthLeft: 61, mouthRight: 291,
+    mouthTop: 13, mouthBottom: 14,
+    // 눈썹
+    leftBrow: 65, rightBrow: 295,
+    browCenter: 9,
+    // 턱
+    leftJaw: 172, rightJaw: 397,
+  };
+
+  function analyze(lm, W, H) {
+    // 좌표를 픽셀 단위로
+    const p = (i) => ({ x: lm[i].x * W, y: lm[i].y * H });
+
+    const faceW = dist(p(LM.leftFace), p(LM.rightFace));
+    const faceH = dist(p(LM.forehead), p(LM.chin));
+
+    // === 대칭 ===
+    // 중심선: 이마(10) ↔ 턱(152)
+    const top = p(LM.forehead), bot = p(LM.chin);
+    // 점 a를 중심선 기준 좌측 거리 (부호 있는 직선까지의 거리)
+    function sideDist(a) {
+      // 직선 (top → bot)에 대한 점 a의 부호있는 수직거리
+      const dx = bot.x - top.x, dy = bot.y - top.y;
+      const len = Math.hypot(dx, dy) || 1;
+      return ((a.x - top.x) * dy - (a.y - top.y) * dx) / len;
+    }
+    const eyeDiff = Math.abs(Math.abs(sideDist(p(LM.leftEyeOuter))) - Math.abs(sideDist(p(LM.rightEyeOuter))));
+    const mouthDiff = Math.abs(Math.abs(sideDist(p(LM.mouthLeft))) - Math.abs(sideDist(p(LM.mouthRight))));
+    const jawDiff = Math.abs(Math.abs(sideDist(p(LM.leftJaw))) - Math.abs(sideDist(p(LM.rightJaw))));
+
+    const sEye = symScore(eyeDiff, faceW);
+    const sMouth = symScore(mouthDiff, faceW);
+    const sJaw = symScore(jawDiff, faceW);
+    const symmetry = (sEye + sMouth + sJaw) / 3;
+
+    // === 황금비율 ===
+    // 1) 얼굴 길이 / 폭 ≈ 1.618
+    const r1 = faceH / faceW;
+    // 2) 상/중/하 3분할 (이마끝~눈썹, 눈썹~코끝, 코끝~턱) 이상적 1:1:1
+    //    여기서는 (눈썹~코끝) / (코끝~턱) ≈ 1 을 1점 만점으로,
+    //    그리고 (이마~눈썹) / (눈썹~턱) ≈ 1/φ ≈ 0.618
+    const browY = p(LM.browCenter).y;
+    const noseY = p(LM.noseBottom).y;
+    const foreheadY = p(LM.forehead).y;
+    const chinY = p(LM.chin).y;
+    const upper = browY - foreheadY;
+    const mid = noseY - browY;
+    const lower = chinY - noseY;
+    const r2 = (mid + lower) > 0 ? Math.max(upper, mid, lower) / Math.min(upper, mid, lower) : 0;
+    // 이상치: 1.0 (완전 균등) → φ로 변환 시 그냥 다른 기준 사용
+    // 3) 눈썹↔코끝 길이 / 코끝↔턱끝 길이 ≈ φ 가 아니라 1 에 가깝지만,
+    //    클래식한 미용 황금비 중 하나: (눈썹~입중심) / (입중심~턱) ≈ φ
+    const mouthCenterY = (p(LM.mouthTop).y + p(LM.mouthBottom).y) / 2;
+    const r3 = (mouthCenterY - browY) / Math.max(1, chinY - mouthCenterY);
+    // 4) 입 폭 / 코 폭 ≈ φ
+    const mouthW = dist(p(LM.mouthLeft), p(LM.mouthRight));
+    const noseW = dist(p(LM.noseLeft), p(LM.noseRight));
+    const r4 = mouthW / Math.max(1, noseW);
+
+    const sPhi1 = phiScore(r1);
+    // 3분할 균등 점수 (1에 가까울수록 100)
+    const sPhi2 = Math.max(0, Math.min(100, (1 - Math.abs(r2 - 1) / 0.5) * 100));
+    const sPhi3 = phiScore(r3);
+    const sPhi4 = phiScore(r4);
+    const phi = (sPhi1 + sPhi2 + sPhi3 + sPhi4) / 4;
+
+    const total = symmetry * 0.5 + phi * 0.5;
+
+    return {
+      faceW, faceH,
+      symmetry, sEye, sMouth, sJaw,
+      eyeDiff, mouthDiff, jawDiff,
+      phi, sPhi1, sPhi2, sPhi3, sPhi4,
+      r1, r2, r3, r4,
+      total,
+      center: { top, bot },
+    };
+  }
+
+  function gradeOf(score) {
+    if (score >= 85) return { g: "S", t: "조각상에 가까운 균형감!", c: "#d4af37" };
+    if (score >= 75) return { g: "A", t: "매우 균형 잡힌 인상", c: "#22c55e" };
+    if (score >= 65) return { g: "B", t: "전체적으로 조화로움", c: "#22c55e" };
+    if (score >= 55) return { g: "C", t: "개성있는 매력 포인트", c: "#f59e0b" };
+    if (score >= 40) return { g: "D", t: "독특한 비율의 소유자", c: "#f59e0b" };
+    return { g: "E", t: "각도/조명에 따라 달라질 수 있어요", c: "#ef4444" };
+  }
+
+  function funComment(r) {
+    const lines = [];
+    if (r.symmetry >= 80) lines.push("좌우 대칭이 거의 완벽합니다.");
+    else if (r.symmetry >= 60) lines.push("자연스러운 비대칭이 매력을 더해요.");
+    else lines.push("각도를 살짝 정면으로 맞춰보세요 — 더 좋아질 거예요.");
+
+    if (r.sPhi4 >= 80) lines.push("입과 코의 폭 비율이 황금비에 가깝습니다.");
+    if (r.sPhi1 >= 80) lines.push("얼굴 길이/폭이 이상적인 1.618에 근접합니다.");
+    if (r.sPhi3 >= 80) lines.push("눈썹–입–턱 비율이 황금분할에 가깝습니다.");
+
+    if (lines.length === 1) lines.push("황금비율 면에서는 개성있는 분포를 보여요.");
+    return lines.join(" ");
+  }
+
+  function updateUI(r) {
+    document.getElementById('totalScore').textContent = r.total.toFixed(1);
+    document.getElementById('totalBar').style.width = r.total.toFixed(1) + '%';
+    const g = gradeOf(r.total);
+    const ge = document.getElementById('grade');
+    ge.textContent = `등급 ${g.g} — ${g.t}`;
+    ge.style.color = g.c;
+    document.getElementById('totalBar').style.background = g.c;
+
+    document.getElementById('symScore').textContent = r.symmetry.toFixed(1) + ' / 100';
+    document.getElementById('symEye').textContent = r.sEye.toFixed(0) + ' / 100';
+    document.getElementById('symMouth').textContent = r.sMouth.toFixed(0) + ' / 100';
+    document.getElementById('symJaw').textContent = r.sJaw.toFixed(0) + ' / 100';
+
+    document.getElementById('phiScore').textContent = r.phi.toFixed(1) + ' / 100';
+    document.getElementById('phiFace').textContent = `${r.r1.toFixed(3)}  (${r.sPhi1.toFixed(0)}점)`;
+    document.getElementById('phiThirds').textContent = `${r.r2.toFixed(3)}  (${r.sPhi2.toFixed(0)}점)`;
+    document.getElementById('phiNose').textContent = `${r.r3.toFixed(3)}  (${r.sPhi3.toFixed(0)}점)`;
+    document.getElementById('phiMouth').textContent = `${r.r4.toFixed(3)}  (${r.sPhi4.toFixed(0)}점)`;
+
+    document.getElementById('comment').textContent = funComment(r);
+  }
+
+  function drawOverlay(lm, r, W, H) {
+    overlay.width = W;
+    overlay.height = H;
+    ctx.clearRect(0, 0, W, H);
+
+    // 중심선
+    ctx.strokeStyle = 'rgba(212,175,55,0.9)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(r.center.top.x, r.center.top.y);
+    ctx.lineTo(r.center.bot.x, r.center.bot.y);
+    ctx.stroke();
+
+    // 주요 랜드마크 점
+    const keyPts = [LM.leftEyeOuter, LM.rightEyeOuter, LM.mouthLeft, LM.mouthRight,
+      LM.noseLeft, LM.noseRight, LM.forehead, LM.chin, LM.browCenter, LM.noseBottom];
+    ctx.fillStyle = 'rgba(34,197,94,0.95)';
+    for (const i of keyPts) {
+      const x = lm[i].x * W, y = lm[i].y * H;
+      ctx.beginPath();
+      ctx.arc(x, y, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // 3분할 가로선
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    ctx.lineWidth = 1;
+    const drawHLine = (y) => {
+      ctx.beginPath();
+      ctx.moveTo(lm[LM.leftFace].x * W, y);
+      ctx.lineTo(lm[LM.rightFace].x * W, y);
+      ctx.stroke();
+    };
+    drawHLine(lm[LM.browCenter].y * H);
+    drawHLine(lm[LM.noseBottom].y * H);
+  }
+
+  // ===== MediaPipe 초기화 =====
+  const faceMesh = new FaceMesh({
+    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+  });
+  faceMesh.setOptions({
+    maxNumFaces: 1,
+    refineLandmarks: true,
+    minDetectionConfidence: 0.5,
+    minTrackingConfidence: 0.5,
+  });
+
+  faceMesh.onResults((results) => {
+    if (loading.style.display !== 'none') {
+      loading.style.display = 'none';
+    }
+    if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
+      ctx.clearRect(0, 0, overlay.width, overlay.height);
+      statusEl.textContent = '얼굴을 찾는 중… 정면을 바라봐 주세요.';
+      return;
+    }
+    const lm = results.multiFaceLandmarks[0];
+    lastLandmarks = lm;
+    const W = video.videoWidth;
+    const H = video.videoHeight;
+    if (!W || !H) return;
+
+    const r = analyze(lm, W, H);
+    drawOverlay(lm, r, W, H);
+
+    if (snapMode) {
+      snapSamples.push(r);
+      statusEl.textContent = `스냅 분석 중… (${snapSamples.length} 프레임 수집)`;
+    } else {
+      updateUI(r);
+      statusEl.textContent = '실시간 분석 중';
+    }
+  });
+
+  // 모델 사전 로딩
+  loadingText.textContent = '얼굴 인식 모델 로딩 중...';
+  faceMesh.initialize().then(() => {
+    loadingText.textContent = '준비 완료 — 카메라 시작 버튼을 눌러주세요';
+    loading.querySelector('.spinner').style.display = 'none';
+    startBtn.disabled = false;
+  }).catch((e) => {
+    loadingText.textContent = '모델 로딩 실패: ' + e.message;
+  });
+
+  startBtn.addEventListener('click', async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 960, facingMode: 'user' } });
+      video.srcObject = stream;
+      await video.play();
+      loading.style.display = 'none';
+      camera = new Camera(video, {
+        onFrame: async () => { await faceMesh.send({ image: video }); },
+        width: 1280, height: 960,
+      });
+      camera.start();
+      startBtn.disabled = true;
+      freezeBtn.disabled = false;
+      stopBtn.disabled = false;
+      statusEl.textContent = '카메라 시작됨';
+    } catch (e) {
+      statusEl.textContent = '카메라 권한이 필요합니다: ' + e.message;
+    }
+  });
+
+  freezeBtn.addEventListener('click', () => {
+    if (snapMode) return;
+    snapMode = true;
+    snapSamples = [];
+    freezeBtn.disabled = true;
+    snapTimer = setTimeout(() => {
+      snapMode = false;
+      freezeBtn.disabled = false;
+      if (snapSamples.length === 0) {
+        statusEl.textContent = '분석 실패 — 얼굴이 인식되지 않았어요';
+        return;
+      }
+      // 평균 계산
+      const avg = {};
+      const keys = ['total','symmetry','sEye','sMouth','sJaw','phi','sPhi1','sPhi2','sPhi3','sPhi4','r1','r2','r3','r4'];
+      for (const k of keys) {
+        avg[k] = snapSamples.reduce((s,x) => s + x[k], 0) / snapSamples.length;
+      }
+      updateUI(avg);
+      statusEl.textContent = `스냅 완료 — ${snapSamples.length} 프레임 평균`;
+    }, 3000);
+  });
+
+  stopBtn.addEventListener('click', () => {
+    if (camera) camera.stop();
+    if (video.srcObject) {
+      video.srcObject.getTracks().forEach(t => t.stop());
+      video.srcObject = null;
+    }
+    ctx.clearRect(0, 0, overlay.width, overlay.height);
+    startBtn.disabled = false;
+    freezeBtn.disabled = true;
+    stopBtn.disabled = true;
+    statusEl.textContent = '정지됨';
+  });
+</script>
+</body>
+</html>
