@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>대한민국 행정구역 뽑기 🎲</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+<style>
+  /* ====== 전역 변수 ====== */
+  :root {
+    --bg-1: #0b1437;
+    --bg-2: #1a1a4e;
+    --accent-pink: #ff4fa3;
+    --accent-yellow: #ffd93d;
+    --accent-cyan: #4fd1ff;
+    --text: #ffffff;
+    --text-dim: #b8c0e0;
+    --map-default: #e9edf5;
+    --map-hover: #c8d3e8;
+    --map-flash: #ffd93d;
+    --map-winner: #ff4fa3;
+    --radius: 16px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color: var(--text);
+    background: linear-gradient(135deg, var(--bg-1) 0%, var(--bg-2) 50%, #2d1b69 100%);
+    overflow-x: hidden;
+  }
+  body {
+    min-height: 100vh;
+    padding: 16px 20px 40px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ====== 헤더 ====== */
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  h1 {
+    font-size: 28px;
+    font-weight: 900;
+    background: linear-gradient(90deg, var(--accent-yellow), var(--accent-pink), var(--accent-cyan));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    letter-spacing: -0.5px;
+  }
+  .header-buttons { display: flex; gap: 8px; }
+  .icon-btn {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: var(--text);
+    padding: 8px 14px;
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all .2s;
+  }
+  .icon-btn:hover { background: rgba(255,255,255,0.18); transform: translateY(-1px); }
+
+  /* ====== 메인 컨테이너 ====== */
+  main {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .step { display: none; width: 100%; max-width: 1100px; }
+  .step.active { display: block; animation: fadeIn .4s ease; }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ====== Step 1: 입력 화면 ====== */
+  .input-card {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: var(--radius);
+    padding: 40px 32px;
+    max-width: 480px;
+    margin: 0 auto;
+    text-align: center;
+  }
+  .input-card h2 {
+    font-size: 22px;
+    margin-bottom: 24px;
+    color: var(--accent-yellow);
+  }
+  .input-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .input-row > div { flex: 1; text-align: left; }
+  .input-row label {
+    display: block;
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+  .input-row input {
+    width: 100%;
+    padding: 14px 16px;
+    background: rgba(255,255,255,0.1);
+    border: 2px solid rgba(255,255,255,0.2);
+    border-radius: 12px;
+    color: var(--text);
+    font-size: 16px;
+    font-weight: 600;
+    font-family: inherit;
+    transition: all .2s;
+  }
+  .input-row input:focus {
+    outline: none;
+    border-color: var(--accent-cyan);
+    background: rgba(255,255,255,0.15);
+  }
+  .input-row input::placeholder { color: rgba(255,255,255,0.4); }
+
+  /* ====== 큰 버튼 ====== */
+  .big-btn {
+    display: inline-block;
+    padding: 18px 48px;
+    background: linear-gradient(135deg, var(--accent-pink), var(--accent-yellow));
+    color: #1a1a4e;
+    border: none;
+    border-radius: 50px;
+    font-size: 22px;
+    font-weight: 900;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all .25s;
+    margin-top: 12px;
+    letter-spacing: -0.3px;
+  }
+  .big-btn:hover:not(:disabled) {
+    transform: scale(1.06);
+    filter: brightness(1.1);
+  }
+  .big-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+  .secondary-btn {
+    background: rgba(255,255,255,0.12);
+    color: var(--text);
+    border: 2px solid rgba(255,255,255,0.3);
+    padding: 14px 32px;
+    border-radius: 50px;
+    font-size: 17px;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all .2s;
+    margin: 6px;
+  }
+  .secondary-btn:hover { background: rgba(255,255,255,0.22); transform: translateY(-2px); }
+
+  /* ====== Step 2/3: 지도 영역 ====== */
+  .map-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+  .status-bar {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--accent-yellow);
+    min-height: 28px;
+    text-align: center;
+  }
+  .map-box {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: var(--radius);
+    padding: 12px;
+    max-width: 560px;
+    width: 100%;
+  }
+  svg.korea-map {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+  svg.korea-map .region {
+    fill: var(--map-default);
+    stroke: #1a1a4e;
+    stroke-width: 1.5;
+    cursor: default;
+    transition: fill .15s;
+  }
+  svg.korea-map .region.flashing {
+    fill: var(--map-flash) !important;
+    filter: drop-shadow(0 0 8px var(--map-flash));
+  }
+  svg.korea-map .region.winner {
+    fill: var(--map-winner) !important;
+    filter: drop-shadow(0 0 14px var(--map-winner));
+  }
+  svg.korea-map .region-label {
+    font-size: 11px;
+    font-weight: 700;
+    fill: #1a1a4e;
+    pointer-events: none;
+    text-anchor: middle;
+    font-family: 'Pretendard', sans-serif;
+  }
+
+  /* ====== 결과 텍스트 ====== */
+  .result-text {
+    font-size: 24px;
+    font-weight: 800;
+    text-align: center;
+    line-height: 1.5;
+    padding: 16px;
+  }
+  .result-text .region-name {
+    display: inline-block;
+    color: var(--accent-yellow);
+    font-size: 36px;
+    margin: 0 8px;
+    text-shadow: 0 0 20px var(--accent-yellow);
+    animation: pop .5s ease;
+  }
+  @keyframes pop {
+    0% { transform: scale(0.5); opacity: 0; }
+    60% { transform: scale(1.2); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  .result-buttons { text-align: center; margin-top: 16px; }
+
+  /* ====== 화면 진동 효과 ====== */
+  .shake { animation: shake .4s; }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-8px); }
+    40% { transform: translateX(8px); }
+    60% { transform: translateX(-5px); }
+    80% { transform: translateX(5px); }
+  }
+
+  /* ====== 모달 ====== */
+  .modal-backdrop {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .modal-backdrop.active { display: flex; }
+  .modal {
+    background: #1a1a4e;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: var(--radius);
+    max-width: 720px;
+    width: 100%;
+    max-height: 85vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .modal-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid rgba(255,255,255,0.15);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .modal-header h3 { font-size: 20px; color: var(--accent-cyan); }
+  .modal-body {
+    padding: 16px 24px;
+    overflow-y: auto;
+    flex: 1;
+  }
+  .modal-footer {
+    padding: 16px 24px;
+    border-top: 1px solid rgba(255,255,255,0.15);
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+  table.history {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  table.history th, table.history td {
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+  table.history th {
+    color: var(--accent-yellow);
+    font-weight: 700;
+    background: rgba(255,255,255,0.05);
+    position: sticky;
+    top: 0;
+  }
+  table.history td.region-cell { color: var(--accent-cyan); font-weight: 700; }
+  .empty-msg {
+    text-align: center;
+    color: var(--text-dim);
+    padding: 40px 0;
+  }
+  .modal-btn {
+    padding: 10px 18px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    border: none;
+    transition: all .2s;
+  }
+  .modal-btn.primary { background: var(--accent-cyan); color: #0b1437; }
+  .modal-btn.danger  { background: #ff4040; color: white; }
+  .modal-btn.ghost   { background: rgba(255,255,255,0.1); color: var(--text); }
+  .modal-btn:hover { transform: translateY(-1px); filter: brightness(1.1); }
+
+  /* ====== 반응형 ====== */
+  @media (max-width: 640px) {
+    h1 { font-size: 22px; }
+    .input-card { padding: 28px 20px; }
+    .big-btn { font-size: 18px; padding: 14px 32px; }
+    .result-text { font-size: 18px; }
+    .result-text .region-name { font-size: 28px; }
+    svg.korea-map .region-label { font-size: 9px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🎲 대한민국 행정구역 뽑기</h1>
+  <div class="header-buttons">
+    <button class="icon-btn" id="muteBtn" aria-label="음소거 토글">🔊 소리 켜짐</button>
+    <button class="icon-btn" id="historyBtn" aria-label="기록 보기">📋 기록 보기</button>
+  </div>
+</header>
+
+<main>
+  <!-- ========== Step 1: 학생 정보 입력 ========== -->
+  <section class="step active" id="step1">
+    <div class="input-card">
+      <h2>✏️ 학생 정보를 입력하세요</h2>
+      <div class="input-row">
+        <div>
+          <label for="inpClass">반</label>
+          <input id="inpClass" type="number" min="1" max="20" placeholder="3" inputmode="numeric">
+        </div>
+        <div>
+          <label for="inpNum">번호</label>
+          <input id="inpNum" type="number" min="1" max="50" placeholder="12" inputmode="numeric">
+        </div>
+        <div>
+          <label for="inpName">이름</label>
+          <input id="inpName" type="text" maxlength="10" placeholder="홍길동">
+        </div>
+      </div>
+      <button class="big-btn" id="startBtn" disabled aria-label="뽑기 시작">🎯 뽑기 시작!</button>
+    </div>
+  </section>
+
+  <!-- ========== Step 2: 뽑기 연출 ========== -->
+  <section class="step" id="step2">
+    <div class="map-wrap">
+      <div class="status-bar" id="statusBar">🥁 두구두구두구...</div>
+      <div class="map-box" id="mapBox">
+        <!-- 지도 SVG는 JS에서 삽입 -->
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== Step 3: 결과 화면 ========== -->
+  <section class="step" id="step3">
+    <div class="map-wrap">
+      <div class="result-text" id="resultText"></div>
+      <div class="map-box" id="mapBoxResult"></div>
+      <div class="result-buttons">
+        <button class="secondary-btn" id="retryBtn" aria-label="다시 뽑기">🔄 다시 뽑기</button>
+        <button class="big-btn" id="nextBtn" aria-label="다음 학생">다음 학생 ▶</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ========== 기록 모달 ========== -->
+<div class="modal-backdrop" id="historyModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>📋 추첨 기록</h3>
+      <button class="icon-btn" id="closeModalBtn" aria-label="닫기">✕</button>
+    </div>
+    <div class="modal-body" id="historyBody"></div>
+    <div class="modal-footer">
+      <button class="modal-btn danger" id="clearBtn">🗑 전체 삭제</button>
+      <button class="modal-btn primary" id="csvBtn">💾 CSV 내보내기</button>
+      <button class="modal-btn ghost" id="closeFooterBtn">닫기</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===========================================================
+   대한민국 행정구역 뽑기 게임 - 메인 스크립트
+   =========================================================== */
+
+/* ---------- 1) 상수 데이터 ---------- */
+// 17개 시·도 (북한 제외) 정식 명칭
+const REGIONS = [
+  '서울특별시','부산광역시','대구광역시','인천광역시','광주광역시',
+  '대전광역시','울산광역시','세종특별자치시','경기도','강원특별자치도',
+  '충청북도','충청남도','전북특별자치도','전라남도','경상북도',
+  '경상남도','제주특별자치도'
+];
+
+// localStorage 키
+const STORAGE_KEY = 'koreaRegionLotteryHistory_v1';
+
+/* ---------- 2) 지도 SVG 데이터 (단순화된 폴리곤) ----------
+   viewBox 0 0 500 720 기준. 실제 지리와 100% 일치하진 않지만
+   시·도 위치 관계는 인식 가능하게 단순화했습니다.
+*/
+const MAP_DATA = [
+  // 강원특별자치도 (북동부 큰 영역)
+  { id:'강원특별자치도', short:'강원', cx:340, cy:130,
+    d:'M 240,60 L 460,75 L 470,180 L 380,210 L 280,205 L 235,160 Z' },
+  // 경기도 (서울/인천 둘러쌈)
+  { id:'경기도', short:'경기', cx:235, cy:180,
+    d:'M 165,110 L 240,100 L 280,170 L 280,235 L 200,245 L 145,200 L 135,160 Z' },
+  // 서울특별시 (경기도 안)
+  { id:'서울특별시', short:'서울', cx:225, cy:175,
+    d:'M 205,162 L 252,162 L 252,195 L 205,195 Z' },
+  // 인천광역시 (서해안)
+  { id:'인천광역시', short:'인천', cx:155, cy:200,
+    d:'M 130,175 L 170,175 L 170,225 L 130,225 Z' },
+  // 충청북도
+  { id:'충청북도', short:'충북', cx:340, cy:280,
+    d:'M 285,235 L 385,225 L 400,320 L 320,335 L 285,295 Z' },
+  // 충청남도
+  { id:'충청남도', short:'충남', cx:215, cy:295,
+    d:'M 140,240 L 285,250 L 285,310 L 230,345 L 155,335 L 130,290 Z' },
+  // 세종특별자치시 (충남/충북 사이)
+  { id:'세종특별자치시', short:'세종', cx:275, cy:295,
+    d:'M 260,278 L 295,278 L 295,310 L 260,310 Z' },
+  // 대전광역시 (충남 동남부)
+  { id:'대전광역시', short:'대전', cx:283, cy:325,
+    d:'M 263,312 L 305,312 L 305,343 L 263,343 Z' },
+  // 전북특별자치도
+  { id:'전북특별자치도', short:'전북', cx:230, cy:390,
+    d:'M 155,340 L 320,340 L 325,425 L 175,440 L 145,395 Z' },
+  // 전라남도
+  { id:'전라남도', short:'전남', cx:215, cy:495,
+    d:'M 140,445 L 325,430 L 325,540 L 280,580 L 170,575 L 120,520 Z' },
+  // 광주광역시 (전남 내부)
+  { id:'광주광역시', short:'광주', cx:215, cy:485,
+    d:'M 195,470 L 240,470 L 240,505 L 195,505 Z' },
+  // 경상북도
+  { id:'경상북도', short:'경북', cx:415, cy:285,
+    d:'M 385,215 L 480,220 L 490,375 L 395,395 L 380,310 Z' },
+  // 대구광역시 (경북 남부 내부)
+  { id:'대구광역시', short:'대구', cx:425, cy:355,
+    d:'M 405,338 L 450,338 L 450,378 L 405,378 Z' },
+  // 경상남도
+  { id:'경상남도', short:'경남', cx:380, cy:470,
+    d:'M 325,400 L 470,395 L 475,510 L 410,540 L 325,535 Z' },
+  // 울산광역시
+  { id:'울산광역시', short:'울산', cx:470, cy:415,
+    d:'M 450,395 L 495,395 L 495,440 L 450,440 Z' },
+  // 부산광역시
+  { id:'부산광역시', short:'부산', cx:455, cy:500,
+    d:'M 430,480 L 485,480 L 485,525 L 430,525 Z' },
+  // 제주특별자치도 (남쪽 섬)
+  { id:'제주특별자치도', short:'제주', cx:225, cy:660,
+    d:'M 175,640 L 280,640 L 285,680 L 180,685 Z' }
+];
+
+/* ---------- 3) DOM 참조 ---------- */
+const $ = id => document.getElementById(id);
+const steps = { 1:$('step1'), 2:$('step2'), 3:$('step3') };
+const inpClass = $('inpClass'), inpNum = $('inpNum'), inpName = $('inpName');
+const startBtn = $('startBtn'), retryBtn = $('retryBtn'), nextBtn = $('nextBtn');
+const muteBtn = $('muteBtn'), historyBtn = $('historyBtn');
+const statusBar = $('statusBar'), resultText = $('resultText');
+const historyModal = $('historyModal');
+
+/* ---------- 4) 상태 ---------- */
+let currentStudent = null;   // { cls, num, name }
+let currentResult = null;    // 당첨 지역명
+let muted = false;
+let audioCtx = null;
+
+/* ---------- 5) 지도 SVG 렌더링 ---------- */
+function buildMapSVG(containerId) {
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', '0 0 500 720');
+  svg.setAttribute('class', 'korea-map');
+  svg.setAttribute('aria-label', '대한민국 시도 지도');
+  MAP_DATA.forEach(r => {
+    const path = document.createElementNS(ns, 'path');
+    path.setAttribute('d', r.d);
+    path.setAttribute('class', 'region');
+    path.setAttribute('data-id', r.id);
+    svg.appendChild(path);
+    const t = document.createElementNS(ns, 'text');
+    t.setAttribute('x', r.cx);
+    t.setAttribute('y', r.cy + 4);
+    t.setAttribute('class', 'region-label');
+    t.textContent = r.short;
+    svg.appendChild(t);
+  });
+  const container = $(containerId);
+  container.innerHTML = '';
+  container.appendChild(svg);
+  return svg;
+}
+
+/* ---------- 6) 화면 전환 ---------- */
+function showStep(n) {
+  Object.values(steps).forEach(s => s.classList.remove('active'));
+  steps[n].classList.add('active');
+}
+
+function showStep1() {
+  showStep(1);
+  currentResult = null;
+}
+
+function showStep2() {
+  showStep(2);
+  buildMapSVG('mapBox');
+  statusBar.textContent = '🥁 두구두구두구...';
+  setTimeout(() => drawLottery(), 400);
+}
+
+function showStep3() {
+  showStep(3);
+  const svg = buildMapSVG('mapBoxResult');
+  // 당첨 지역만 표시 유지
+  const target = svg.querySelector(`[data-id="${currentResult}"]`);
+  if (target) target.classList.add('winner');
+  resultText.innerHTML = `🎉 ${currentStudent.cls}반 ${currentStudent.num}번 ` +
+                         `<b>${escapeHTML(currentStudent.name)}</b> 학생의 발표 지역은…<br>` +
+                         `<span class="region-name">${currentResult}</span> !`;
+  // 화면 진동
+  document.body.classList.remove('shake');
+  void document.body.offsetWidth; // reflow
+  document.body.classList.add('shake');
+}
+
+/* ---------- 7) 뽑기 로직 ---------- */
+function drawLottery() {
+  // 최종 당첨 지역 결정 (17개에서 균등 랜덤)
+  const winner = REGIONS[Math.floor(Math.random() * REGIONS.length)];
+  currentResult = winner;
+
+  const svg = document.querySelector('#mapBox svg');
+  const regions = svg.querySelectorAll('.region');
+  const idList = Array.from(regions).map(r => r.dataset.id);
+
+  // 드럼롤 효과음 시작
+  playDrumroll(3400);
+
+  // 빠른 깜빡임 → 점차 느려짐 → 당첨 지역에서 멈춤
+  let idx = 0;
+  let elapsed = 0;
+  const totalDuration = 3400; // ms
+  // 점점 느려지도록 간격을 점진 증가
+  function nextTick() {
+    // 이전 하이라이트 제거
+    regions.forEach(r => r.classList.remove('flashing'));
+    // 진행도에 따라 후반에는 당첨지역 쪽으로 수렴, 마지막은 winner 확정
+    let pickId;
+    const progress = elapsed / totalDuration;
+    if (progress >= 1) {
+      // 종료
+      const winEl = svg.querySelector(`[data-id="${winner}"]`);
+      winEl.classList.add('winner');
+      playWinSound();
+      fireConfetti();
+      statusBar.textContent = '🎊 당첨!';
+      setTimeout(() => showStep3(), 1200);
+      return;
+    }
+    pickId = idList[Math.floor(Math.random() * idList.length)];
+    const el = svg.querySelector(`[data-id="${pickId}"]`);
+    el.classList.add('flashing');
+
+    // 간격 계산: 처음 60ms → 마지막 280ms (이징)
+    const interval = 60 + Math.pow(progress, 2.2) * 240;
+    elapsed += interval;
+    setTimeout(nextTick, interval);
+  }
+  nextTick();
+}
+
+/* ---------- 8) 효과음 (Web Audio API 합성) ---------- */
+function ensureAudio() {
+  if (!audioCtx) {
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    } catch(e) { audioCtx = null; }
+  }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+// 드럼롤: 빠른 노이즈 버스트
+function playDrumroll(durationMs) {
+  if (muted) return;
+  const ctx = ensureAudio();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  const totalSec = durationMs / 1000;
+  const burstCount = Math.floor(totalSec * 18); // 초당 18회
+  const bufferSize = ctx.sampleRate * 0.04;
+  for (let i = 0; i < burstCount; i++) {
+    const t = now + (i / burstCount) * totalSec;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let j = 0; j < bufferSize; j++) {
+      data[j] = (Math.random() * 2 - 1) * (1 - j / bufferSize);
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.35;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 250;
+    src.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+    src.start(t);
+  }
+}
+
+// 당첨음: 상승하는 화음
+function playWinSound() {
+  if (muted) return;
+  const ctx = ensureAudio();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  const notes = [
+    {f: 523.25, t: 0.00, d: 0.18}, // C5
+    {f: 659.25, t: 0.12, d: 0.18}, // E5
+    {f: 783.99, t: 0.24, d: 0.18}, // G5
+    {f: 1046.5, t: 0.36, d: 0.55}, // C6
+  ];
+  notes.forEach(n => {
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.value = n.f;
+    g.gain.setValueAtTime(0, now + n.t);
+    g.gain.linearRampToValueAtTime(0.25, now + n.t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.001, now + n.t + n.d);
+    osc.connect(g); g.connect(ctx.destination);
+    osc.start(now + n.t);
+    osc.stop(now + n.t + n.d + 0.05);
+  });
+}
+
+// 클릭음
+function playClick() {
+  if (muted) return;
+  const ctx = ensureAudio();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const g = ctx.createGain();
+  osc.type = 'square';
+  osc.frequency.value = 880;
+  g.gain.setValueAtTime(0.15, now);
+  g.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+  osc.connect(g); g.connect(ctx.destination);
+  osc.start(now); osc.stop(now + 0.1);
+}
+
+/* ---------- 9) 폭죽 ---------- */
+function fireConfetti() {
+  if (typeof confetti !== 'function') return;
+  const burst = (x) => confetti({
+    particleCount: 80, spread: 70, origin: { x, y: 0.6 },
+    colors: ['#ffd93d','#ff4fa3','#4fd1ff','#ffffff']
+  });
+  burst(0.25); burst(0.75);
+  setTimeout(() => burst(0.5), 250);
+}
+
+/* ---------- 10) 기록 저장/불러오기 ---------- */
+function loadHistory() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+  } catch(e) { return []; }
+}
+function saveHistory(arr) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(arr));
+}
+function saveRecord() {
+  if (!currentStudent || !currentResult) return;
+  const hist = loadHistory();
+  hist.push({
+    cls: currentStudent.cls,
+    num: currentStudent.num,
+    name: currentStudent.name,
+    region: currentResult,
+    time: new Date().toISOString()
+  });
+  saveHistory(hist);
+}
+
+/* ---------- 11) 기록 모달 ---------- */
+function openHistory() {
+  renderHistory();
+  historyModal.classList.add('active');
+}
+function closeHistory() {
+  historyModal.classList.remove('active');
+}
+function renderHistory() {
+  const hist = loadHistory();
+  const body = $('historyBody');
+  if (!hist.length) {
+    body.innerHTML = '<div class="empty-msg">아직 추첨 기록이 없습니다.</div>';
+    return;
+  }
+  const rows = hist.map((h, i) => {
+    const t = new Date(h.time);
+    const timeStr = `${pad(t.getMonth()+1)}/${pad(t.getDate())} ${pad(t.getHours())}:${pad(t.getMinutes())}`;
+    return `<tr>
+      <td>${i+1}</td>
+      <td>${escapeHTML(h.cls)}</td>
+      <td>${escapeHTML(h.num)}</td>
+      <td>${escapeHTML(h.name)}</td>
+      <td class="region-cell">${escapeHTML(h.region)}</td>
+      <td>${timeStr}</td>
+    </tr>`;
+  }).join('');
+  body.innerHTML = `
+    <table class="history">
+      <thead><tr><th>#</th><th>반</th><th>번호</th><th>이름</th><th>지역</th><th>시각</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+/* ---------- 12) CSV 내보내기 ---------- */
+function exportCSV() {
+  const hist = loadHistory();
+  if (!hist.length) { alert('내보낼 기록이 없습니다.'); return; }
+  const header = ['번호','반','출석번호','이름','뽑힌지역','시각'];
+  const lines = [header.join(',')];
+  hist.forEach((h, i) => {
+    const t = new Date(h.time);
+    const timeStr = `${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())} ${pad(t.getHours())}:${pad(t.getMinutes())}:${pad(t.getSeconds())}`;
+    const row = [i+1, h.cls, h.num, csvEscape(h.name), h.region, timeStr];
+    lines.push(row.join(','));
+  });
+  // UTF-8 BOM 포함 → 엑셀 한글 깨짐 방지
+  const bom = '\uFEFF';
+  const blob = new Blob([bom + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+  const now = new Date();
+  const fname = `행정구역뽑기_결과_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}.csv`;
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = fname;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+/* ---------- 13) 유틸 ---------- */
+function pad(n) { return String(n).padStart(2, '0'); }
+function csvEscape(s) {
+  s = String(s);
+  if (/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+function escapeHTML(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+
+/* ---------- 14) 입력 유효성 ---------- */
+function validateInputs() {
+  const c = inpClass.value.trim();
+  const n = inpNum.value.trim();
+  const name = inpName.value.trim();
+  startBtn.disabled = !(c && n && name);
+}
+
+/* ---------- 15) 이벤트 바인딩 ---------- */
+[inpClass, inpNum, inpName].forEach(inp => {
+  inp.addEventListener('input', validateInputs);
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !startBtn.disabled) startBtn.click();
+  });
+});
+
+startBtn.addEventListener('click', () => {
+  playClick();
+  currentStudent = {
+    cls: inpClass.value.trim(),
+    num: inpNum.value.trim(),
+    name: inpName.value.trim()
+  };
+  showStep2();
+});
+
+retryBtn.addEventListener('click', () => {
+  playClick();
+  showStep2();
+});
+
+nextBtn.addEventListener('click', () => {
+  playClick();
+  saveRecord();
+  // 입력 초기화
+  inpClass.value = '';
+  inpNum.value = '';
+  inpName.value = '';
+  validateInputs();
+  currentStudent = null;
+  currentResult = null;
+  showStep1();
+  setTimeout(() => inpClass.focus(), 100);
+});
+
+muteBtn.addEventListener('click', () => {
+  muted = !muted;
+  muteBtn.textContent = muted ? '🔇 소리 꺼짐' : '🔊 소리 켜짐';
+});
+
+historyBtn.addEventListener('click', () => { playClick(); openHistory(); });
+$('closeModalBtn').addEventListener('click', closeHistory);
+$('closeFooterBtn').addEventListener('click', closeHistory);
+$('csvBtn').addEventListener('click', exportCSV);
+$('clearBtn').addEventListener('click', () => {
+  if (confirm('모든 기록을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
+    localStorage.removeItem(STORAGE_KEY);
+    renderHistory();
+  }
+});
+historyModal.addEventListener('click', e => {
+  if (e.target === historyModal) closeHistory();
+});
+
+// 첫 입력 칸 포커스
+window.addEventListener('load', () => {
+  inpClass.focus();
+});
+</script>
+
+</body>
+</html>
