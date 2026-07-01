@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>디벗 점검 · 방학 전 확인</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&family=Gaegu:wght@400;700&display=swap">
+<style>
+  :root{
+    --bg1:#EEE9FF; --bg2:#F3F0FF; --bg3:#FFF4E6;
+    --surface:#FFFFFF;
+    --ink:#1F2138; --ink-soft:#5C5F7E; --ink-faint:#9A9DBA;
+    --primary:#5B4BDB; --primary-d:#4031B6; --primary-soft:#ECE9FF;
+    --alert:#EC4C2B; --alert-soft:#FFE7DF; --alert-d:#C23613;
+    --sunny:#FFB627; --sunny-d:#F59300;
+    --line:#E7E5F4;
+    --ok:#16A37B; --ok-soft:#E2F6EF;
+    --shadow:0 18px 50px -18px rgba(53,42,128,.45);
+    --radius:26px;
+    --font:"Pretendard","Pretendard Variable",-apple-system,BlinkMacSystemFont,system-ui,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+    --hand:"Nanum Pen Script","Gaegu","Apple SD Gothic Neo",cursive;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;height:100%;}
+  body{
+    font-family:var(--font); color:var(--ink);
+    background:
+      radial-gradient(1200px 600px at 80% -10%, var(--bg3), transparent 60%),
+      linear-gradient(160deg, var(--bg1), var(--bg2) 55%, #FBFAFF);
+    min-height:100dvh; display:flex; align-items:flex-start; justify-content:center;
+    padding:max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
+  }
+  .app{ width:100%; max-width:440px; }
+
+  /* top brand + progress */
+  .topbar{ display:flex; align-items:center; gap:10px; padding:2px 6px 14px; }
+  .backbtn{
+    flex:0 0 auto; width:36px; height:36px; border-radius:10px;
+    border:1px solid var(--line); background:#fff; color:var(--ink);
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; padding:0; font-family:inherit;
+    transition:transform .15s ease, background .15s ease;
+  }
+  .backbtn:hover{ background:var(--primary-soft); }
+  .backbtn:active{ transform:scale(.94); }
+  .backbtn svg{ width:18px; height:18px; display:block; }
+  .backbtn.hide{ display:none; }
+  .logo{ display:flex; align-items:center; gap:9px; font-weight:800; letter-spacing:-.02em; color:var(--ink); }
+  .logo .chip{
+    width:30px;height:30px;border-radius:9px;display:grid;place-items:center;
+    background:linear-gradient(140deg,var(--primary),#7B6CF0); color:#fff; font-size:15px;
+    box-shadow:0 6px 14px -4px rgba(91,75,219,.7);
+  }
+  .logo small{ display:block; font-size:11px; font-weight:600; color:var(--ink-faint); letter-spacing:0; }
+  .progress{ flex:1; height:7px; border-radius:99px; background:#E4E1F4; overflow:hidden; }
+  .progress > i{ display:block; height:100%; width:0%; border-radius:99px;
+    background:linear-gradient(90deg,var(--primary),#8678F2); transition:width .45s cubic-bezier(.4,1.3,.5,1); }
+  .progress.hide{ visibility:hidden; }
+
+  /* card */
+  .card{
+    position:relative;
+    background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow);
+    border:1px solid #fff; padding:22px 18px 20px; min-height:auto;
+    display:flex; flex-direction:column;
+  }
+  .screen{ display:none; flex:1; flex-direction:column; }
+  .screen.active{ display:flex; animation:rise .5s cubic-bezier(.2,.9,.25,1.05) both; }
+  @keyframes rise{ from{opacity:0; transform:translateY(16px) scale(.985);} to{opacity:1; transform:none;} }
+
+  .eyebrow{ font-size:12px; font-weight:800; letter-spacing:.04em; color:var(--primary);
+    text-transform:none; display:inline-flex; align-items:center; gap:6px; margin-bottom:14px; }
+  .qnum{ background:var(--primary-soft); color:var(--primary-d); padding:3px 10px; border-radius:99px; }
+  h1{ font-size:25px; line-height:1.32; letter-spacing:-.025em; margin:0 0 6px; font-weight:800; }
+  h1.big{ font-size:28px; }
+  .sub{ color:var(--ink-soft); font-size:15px; line-height:1.6; margin:8px 0 0; }
+  /* 인트로 화면용 강조 서브 */
+  .sub.strong{ color:var(--ink); font-size:17px; font-weight:700; line-height:1.55; margin-top:14px; }
+  .spacer{ flex:1; min-height:18px; }
+
+  /* yes/no buttons */
+  .yn{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .btn{
+    font-family:inherit; font-weight:800; font-size:17px; cursor:pointer;
+    border-radius:16px; padding:18px 12px; border:1.5px solid var(--line);
+    background:#fff; color:var(--ink); transition:transform .12s, border-color .15s, background .15s, box-shadow .15s;
+  }
+  .btn:active{ transform:scale(.97); }
+  .btn:hover{ border-color:var(--ink-faint); }
+  .btn.no{ border-color:#E4E1F4; }
+  .btn.no:hover{ border-color:var(--ink-faint); }
+
+  /* primary action */
+  .cta{
+    width:100%; font-family:inherit; font-weight:800; font-size:17px; cursor:pointer;
+    border:none; border-radius:16px; padding:18px; color:#fff;
+    background:linear-gradient(135deg,var(--primary),#7163EC);
+    box-shadow:0 14px 26px -12px rgba(91,75,219,.85); transition:transform .12s, filter .15s;
+  }
+  .cta:active{ transform:scale(.98); }
+  .cta:disabled{ background:#D9D6EC; color:#fff; box-shadow:none; cursor:not-allowed; }
+  .cta.warm{ background:linear-gradient(135deg,var(--sunny),var(--sunny-d)); box-shadow:0 14px 26px -12px rgba(245,147,0,.7); }
+  .ghost{ width:100%; background:none; border:none; color:var(--ink-soft); font-family:inherit;
+    font-weight:700; font-size:14px; padding:12px; cursor:pointer; }
+
+  /* form fields */
+  .field{ margin-bottom:14px; }
+  .field label{ display:block; font-size:13px; font-weight:700; color:var(--ink-soft); margin:0 0 7px 3px; }
+  .row2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  select,input[type=text],input[type=number]{
+    width:100%; font-family:inherit; font-size:16px; color:var(--ink); font-weight:600;
+    padding:14px 14px; border:1.5px solid var(--line); border-radius:14px; background:#fff; outline:none;
+    transition:border-color .15s, box-shadow .15s; -moz-appearance:textfield;
+  }
+  input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+  select:focus,input:focus{ border-color:var(--primary); box-shadow:0 0 0 4px rgba(91,75,219,.14); }
+  .numwrap{ display:flex; align-items:center; gap:10px; }
+  .numwrap input{ flex:1; }
+  .numwrap span{ font-weight:800; color:var(--ink-soft); font-size:16px; }
+  select{ appearance:none; background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%235C5F7E' stroke-width='3' stroke-linecap='round'><path d='M6 9l6 6 6-6'/></svg>");
+    background-repeat:no-repeat; background-position:right 14px center; padding-right:38px; }
+
+  /* notice / alert screens */
+  .notice{ border-radius:18px; padding:20px; border:1.5px dashed var(--alert); background:var(--alert-soft); }
+  .capture{ display:inline-flex; align-items:center; gap:7px; font-size:12.5px; font-weight:800;
+    color:var(--alert-d); background:#fff; border:1px solid #FFD2C5; padding:6px 11px; border-radius:99px; margin-bottom:14px; }
+  .notice .main{ font-size:21px; font-weight:800; line-height:1.45; letter-spacing:-.02em; color:#7A2611; }
+  .notice .foot{ margin-top:14px; padding-top:13px; border-top:1px solid #FFCFC2; font-size:13.5px; color:#9A4226; font-weight:600; line-height:1.55; }
+  /* Q2-1 안내 강조 */
+  .notice.big .main{ font-size:23px; line-height:1.5; }
+  .notice.big .foot{ font-size:16px; line-height:1.6; }
+  .tel{ font-weight:800; color:var(--alert-d); }
+  .runalert{ text-align:center; }
+  .runalert .emoji{ font-size:46px; }
+  .runalert .main{ font-size:26px; font-weight:900; color:#7A2611; line-height:1.4; margin-top:8px; letter-spacing:-.02em; }
+
+  /* 관리 약속 서명 타이틀 */
+  .promise-title{
+    display:flex; align-items:center; gap:8px;
+    font-size:22px; font-weight:900; color:var(--primary-d);
+    letter-spacing:-.02em; margin:0 0 12px;
+  }
+
+  /* promise + signature */
+  .promise{ background:var(--primary-soft); border-radius:16px; padding:16px 18px; margin-bottom:14px; }
+  .promise .ph{ font-size:13px; font-weight:800; color:var(--primary-d); margin-bottom:9px; }
+  .promise ol{ margin:0; padding-left:20px; }
+  .promise li{ font-size:15px; font-weight:700; color:var(--ink); line-height:1.85; }
+  .sigwrap{ position:relative; border:2px solid var(--line); border-radius:16px; background:#fff;
+    overflow:hidden; height:170px; touch-action:none; }
+  .sigwrap.lit{ border-color:var(--primary); }
+  .sigwm{ position:absolute; inset:0; display:grid; place-items:center; pointer-events:none;
+    font-size:24px; font-weight:800; color:#EAE8F6; letter-spacing:.06em; user-select:none; }
+  #sigpad{ position:relative; width:100%; height:100%; display:block; }
+  .sigbar{ display:flex; justify-content:space-between; align-items:center; margin-top:9px; }
+  .sigbar .hint{ font-size:12.5px; color:var(--ink-faint); font-weight:600; }
+  .redo{ background:none; border:none; color:var(--primary-d); font-weight:800; font-size:13px; cursor:pointer; padding:6px 4px; }
+
+  /* 자판 입력 → 손글씨 */
+  .typed-sig-wrap{ margin-top:10px; }
+  .typed-sig-wrap label{
+    display:block; font-size:12.5px; font-weight:700; color:var(--ink-soft); margin:0 0 6px 3px;
+  }
+  #sig-typed{
+    font-family:inherit; font-size:15px;
+  }
+
+  /* finale */
+  #c-done .card-inner{ text-align:center; display:flex; flex-direction:column; align-items:center; justify-content:center; flex:1; }
+  .happy{
+    font-size:46px; font-weight:900; letter-spacing:-.03em; line-height:1.1;
+    background:linear-gradient(120deg,var(--sunny-d),var(--alert),var(--primary)); -webkit-background-clip:text;
+    background-clip:text; color:transparent; animation:pop .7s cubic-bezier(.2,1.4,.4,1) both;
+  }
+  @keyframes pop{ 0%{opacity:0;transform:scale(.4) rotate(-6deg);} 100%{opacity:1;transform:none;} }
+  .happy-sub{ margin-top:12px; color:var(--ink-soft); font-weight:700; font-size:15px; }
+  #confetti{ position:fixed; inset:0; pointer-events:none; z-index:60; }
+
+  .toast{ position:fixed; left:50%; bottom:26px; transform:translateX(-50%) translateY(20px);
+    background:var(--ink); color:#fff; padding:12px 18px; border-radius:14px; font-size:13.5px; font-weight:700;
+    opacity:0; transition:.3s; z-index:80; max-width:90vw; text-align:center; }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  .err{ color:var(--alert-d); font-size:13px; font-weight:700; margin-top:10px; min-height:18px; }
+
+  @media (prefers-reduced-motion: reduce){
+    .screen.active,.happy{ animation:none; }
+    .progress>i{ transition:none; }
+  }
+
+  /* === 모바일 미세 조정 === */
+  @media (max-width: 380px){
+    h1{ font-size:22px !important; }
+    h1.big{ font-size:26px !important; }
+    .btn, button.btn{ font-size:15px !important; padding:14px !important; }
+    .card{ padding:18px 14px 16px !important; }
+  }
+  @media (max-height: 700px){
+    .card{ padding:18px 16px 16px; }
+    .spacer{ display:none; }
+  }
+
+  /* === 디버그 로그 패널 === */
+  .debug{
+    position:fixed; left:8px; right:8px; bottom:8px;
+    max-height:32vh; overflow:auto;
+    background:rgba(31,33,56,.92); color:#E7E5F4;
+    border-radius:10px; padding:8px 10px;
+    font-family:ui-monospace,Menlo,Consolas,monospace; font-size:11px; line-height:1.45;
+    z-index:9999; display:none;
+    border:1px solid rgba(255,255,255,.08);
+  }
+  .debug.show{ display:block; }
+  .debug .row{ display:flex; gap:6px; padding:2px 0; border-bottom:1px dashed rgba(255,255,255,.08); }
+  .debug .row:last-child{ border-bottom:none; }
+  .debug .t{ color:#9A9DBA; flex:0 0 58px; }
+  .debug .s{ flex:0 0 18px; text-align:center; }
+  .debug .s.ok{ color:#4ADE80; }
+  .debug .s.err{ color:#FF7A5C; }
+  .debug .s.info{ color:#7B6CF0; }
+  .debug .m{ flex:1; word-break:break-word; }
+  .debug-toggle{
+    position:fixed; right:10px; bottom:10px; z-index:10000;
+    background:#1F2138; color:#fff; border:none; border-radius:8px;
+    padding:6px 10px; font-size:11px; font-weight:700; font-family:inherit;
+    opacity:.45;
+  }
+  .debug-toggle:active{ opacity:1; }
+
+  /* === 교사용 보기: 오른쪽 상단 버튼 === */
+  .teacher-corner{
+    position:absolute; top:14px; right:14px; z-index:5;
+    font-family:inherit; font-size:12.5px; font-weight:800;
+    color:var(--ink-soft); background:#fff;
+    border:1px solid var(--line); border-radius:10px;
+    padding:8px 12px; cursor:pointer;
+    transition:background .15s, border-color .15s, color .15s;
+  }
+  .teacher-corner:hover{ background:var(--primary-soft); border-color:var(--primary); color:var(--primary-d); }
+  .teacher-corner:active{ transform:scale(.96); }
+
+  /* (기존) 하단 링크식 교사용 보기는 유지하되 인트로 화면에선 사용 안 함 */
+  .teacher-link{
+    margin-top:14px; text-align:center; font-size:12px;
+    color:var(--ink-faint); text-decoration:underline; cursor:pointer;
+    background:none; border:none; font-family:inherit;
+  }
+
+  /* === 교사 화면 === */
+  .pin-input{
+    width:100%; padding:14px; border:1.5px solid var(--line);
+    border-radius:14px; font-size:20px; letter-spacing:.4em; text-align:center;
+    font-family:inherit; font-weight:700;
+  }
+  .pin-input:focus{ outline:none; border-color:var(--primary); box-shadow:0 0 0 4px rgba(91,75,219,.14); }
+  .kpi-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-top:8px; }
+  .kpi-card{ background:#FFF; border:1px solid var(--line); border-radius:12px; padding:10px 12px; }
+  .kpi-card .lbl{ font-size:11px; color:var(--ink-soft); font-weight:700; }
+  .kpi-card .num{ font-size:22px; font-weight:800; color:var(--primary); margin-top:2px; letter-spacing:-.02em; }
+  .kpi-card.alert .num{ color:var(--alert); }
+  .kpi-card.warn  .num{ color:var(--sunny); }
+  .kpi-card.ok    .num{ color:var(--ok); }
+  .dash-section{ margin-top:14px; }
+  .dash-section h3{ margin:0 0 6px; font-size:13px; color:var(--ink-soft); font-weight:800; }
+  .mini-table{ width:100%; border-collapse:collapse; font-size:12px; background:#fff; border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+  .mini-table th, .mini-table td{ padding:6px 8px; text-align:left; border-bottom:1px solid var(--line); }
+  .mini-table th{ background:#F3F0FF; font-size:11px; color:var(--ink-soft); }
+  .mini-table td.num, .mini-table th.num{ text-align:right; font-variant-numeric:tabular-nums; }
+  .mini-table tr:last-child td{ border-bottom:none; }
+  .tabs-row{ display:flex; gap:4px; overflow-x:auto; margin-top:8px; -webkit-overflow-scrolling:touch; }
+  .tab-btn{ flex:0 0 auto; padding:6px 10px; border:1px solid var(--line); background:#fff; border-radius:8px; font-size:12px; font-weight:700; color:var(--ink-soft); font-family:inherit; white-space:nowrap; }
+  .tab-btn.active{ background:var(--primary); color:#fff; border-color:var(--primary); }
+  .empty-row{ padding:14px; text-align:center; color:var(--ink-faint); font-size:12px; font-weight:700; }
+  .dash-scroll{ max-height:42vh; overflow:auto; border:1px solid var(--line); border-radius:10px; }
+  .sig-thumb{ height:36px; border:1px solid var(--line); border-radius:4px; vertical-align:middle; }
+
+</style>
+</head>
+<body>
+  <div class="app">
+    <div class="topbar">
+      <button type="button" class="backbtn hide" id="backBtn" onclick="goBack()" aria-label="뒤로 가기">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <div class="logo"><span class="chip">📓</span><span>디벗 점검<small>방학 전 확인</small></span></div>
+      <div class="progress" id="prog"><i></i></div>
+    </div>
+
+    <div class="card">
+
+      <!-- 경고 인트로 -->
+      <section class="screen active" id="c-intro">
+        <button type="button" class="teacher-corner" onclick="goTeacherLogin()">교사용 보기</button>
+        <span class="eyebrow">⚠️ 시작하기 전에</span>
+        <h1>응답은 한 번만,<br>정확하게 해주세요.</h1>
+        <div class="notice" style="margin-top:18px;border-style:solid;border-color:#FFD2C5;">
+          <p class="main" style="font-size:18px;">중복 응답한 경우 최신 답만 저장되며,<br>모든 응답은 학생 본인에게 책임이 있습니다.</p>
+        </div>
+        <p class="sub strong">학년·반·번호·이름을 정확히 입력하고,<br>화면 안내를 끝까지 따라가 주세요.</p>
+        <div class="spacer"></div>
+        <button class="cta" onclick="go('c-info')">확인하고 시작하기</button>
+      </section>
+
+      <!-- 카드0: 정보 -->
+      <section class="screen" id="c-info">
+        <span class="eyebrow"><span class="qnum">기본 정보</span></span>
+        <h1>나는 누구인가요?</h1>
+        <p class="sub" style="margin-bottom:18px;">정확히 입력해야 결과가 올바르게 저장돼요.</p>
+        <div class="row2">
+          <div class="field">
+            <label>학년</label>
+            <select id="f-grade"><option value="" disabled selected>선택</option><option>1학년</option><option>2학년</option><option>3학년</option></select>
+          </div>
+          <div class="field">
+            <label>반</label>
+            <select id="f-class"><option value="" disabled selected>선택</option><option>1반</option><option>2반</option><option>3반</option><option>4반</option><option>5반</option><option>6반</option><option>7반</option><option>8반</option></select>
+          </div>
+        </div>
+        <div class="field">
+          <label>번호</label>
+          <div class="numwrap"><input id="f-num" type="number" inputmode="numeric" min="1" placeholder="숫자만" /><span>번</span></div>
+        </div>
+        <div class="field">
+          <label>이름</label>
+          <input id="f-name" type="text" placeholder="이름을 입력하세요" maxlength="10" />
+        </div>
+        <div class="err" id="info-err"></div>
+        <div class="spacer"></div>
+        <button class="cta" onclick="submitInfo()">다음</button>
+      </section>
+
+      <!-- Q1 -->
+      <section class="screen" id="c-q1">
+        <span class="eyebrow"><span class="qnum">질문 1</span></span>
+        <h1 class="big">현재 디벗을<br>잘 가지고 있나요?</h1>
+        <div class="spacer"></div>
+        <div class="yn">
+          <button class="btn no" onclick="ans('q1','네','c-q2')">네</button>
+          <button class="btn no" onclick="ans('q1','아니요','c-q1-1')">아니요</button>
+        </div>
+      </section>
+      <!-- Q1-1 -->
+      <section class="screen" id="c-q1-1">
+        <div class="runalert" style="margin:auto 0;">
+          <div class="emoji">🏃‍♂️💨</div>
+          <p class="main">지금 당장<br>교육정보부로<br>뛰어 오시오.</p>
+        </div>
+        <div class="spacer"></div>
+        <button class="cta" onclick="go('c-q2')">확인했어요</button>
+      </section>
+
+      <!-- Q2 -->
+      <section class="screen" id="c-q2">
+        <span class="eyebrow"><span class="qnum">질문 2</span></span>
+        <h1 class="big">디벗에 수리가 필요한<br>부분이 있나요?</h1>
+        <div class="spacer"></div>
+        <div class="yn">
+          <button class="btn no" onclick="ans('q2','네','c-q2-1')">네</button>
+          <button class="btn no" onclick="ans('q2','아니요','c-q3')">아니요</button>
+        </div>
+      </section>
+      <!-- Q2-1 -->
+      <section class="screen" id="c-q2-1">
+        <span class="capture">📸 현재 화면을 캡처해서 따라하시오</span>
+        <div class="notice big">
+          <p class="main">2층 큰 교무실과 wee클래스 사이에 있는 A/S함에 디벗을 맡기고,<br>핸드폰으로 A/S를 접수합니다.</p>
+          <p class="foot">3년 중 1회는 무상수리 · 디벗 A/S 센터 <span class="tel">1566-6647</span></p>
+        </div>
+        <div class="spacer"></div>
+        <button class="cta" onclick="go('c-q3')">확인했어요</button>
+      </section>
+
+      <!-- Q3 -->
+      <section class="screen" id="c-q3">
+        <span class="eyebrow"><span class="qnum">질문 3</span></span>
+        <h1 class="big">디벗 펜을<br>잘 가지고 있나요?</h1>
+        <div class="spacer"></div>
+        <div class="yn">
+          <button class="btn no" onclick="ans('q3','네','c-q4')">네</button>
+          <button class="btn no" onclick="ans('q3','아니요','c-q3-1')">아니요</button>
+        </div>
+      </section>
+      <!-- Q3-1 -->
+      <section class="screen" id="c-q3-1">
+        <span class="capture">📸 현재 화면을 캡처해서 따라하시오</span>
+        <div class="notice">
+          <p class="main">디벗 A/S 센터에 전화해서 디벗 펜을 구입합니다.<br><span class="tel">디벗 A/S 센터 1566-6647</span></p>
+          <p class="foot">펜촉만 없다면 교육정보부로 옵니다.</p>
+        </div>
+        <div class="spacer"></div>
+        <button class="cta" onclick="go('c-q4')">확인했어요</button>
+      </section>
+
+      <!-- Q4 -->
+      <section class="screen" id="c-q4">
+        <span class="eyebrow"><span class="qnum">질문 4</span></span>
+        <h1>3학년 졸업할 때 디벗·디벗펜을 반납하니 잘 관리합시다.</h1>
+        <p class="sub" style="font-weight:800;color:var(--ink);font-size:21px;line-height:1.45;margin-top:20px;letter-spacing:-.02em;">
+          혹시 여름 방학 때<br>집에 디벗을 가져갈 건가요?
+        </p>
+        <div class="spacer"></div>
+        <div class="yn">
+          <button class="btn no" onclick="ans('q4','네','c-q4-1')">네</button>
+          <button class="btn no" onclick="ans('q4','아니요','c-done')">아니요</button>
+        </div>
+      </section>
+      <!-- Q4-1: 서명 -->
+      <section class="screen" id="c-q4-1">
+        <div class="promise-title">✍️ 관리 약속 서명</div>
+        <div class="promise">
+          <div class="ph">방학 중 집에서 사용하면서</div>
+          <ol>
+            <li>잘 관리하겠습니다.</li>
+            <li>절대 고장내지 않겠습니다.</li>
+            <li>개학날 바로 학교로 가져와 담임선생님께 확인받겠습니다.</li>
+          </ol>
+        </div>
+        <div class="sigwrap" id="sigwrap">
+          <div class="sigwm" id="sigwm">이름 3글자 정자로</div>
+          <canvas id="sigpad"></canvas>
+        </div>
+        <div class="sigbar">
+          <span class="hint">손가락·펜으로 쓰거나, 아래에 이름을 입력하세요</span>
+          <button class="redo" onclick="clearSig()">다시쓰기</button>
+        </div>
+
+        <div class="typed-sig-wrap">
+          <label>또는 이름을 입력하면 손글씨로 표시됩니다</label>
+          <input id="sig-typed" type="text" maxlength="10" placeholder="이름 입력" oninput="renderTypedSig(this.value)" />
+        </div>
+
+        <div class="err" id="sig-err"></div>
+        <div class="spacer"></div>
+        <button class="cta" onclick="submitSig()">서명 제출</button>
+      </section>
+
+      <!-- 완료 -->
+      <section class="screen" id="c-done">
+        <div class="card-inner">
+          <div class="happy">🎉 해피 방학 🎉</div>
+          <p class="happy-sub">응답이 저장되었어요.<br>안전하고 즐거운 방학 보내세요!</p>
+        </div>
+      </section>
+
+      <!-- 교사 로그인 -->
+      <section class="screen" id="c-teach-login">
+        <span class="eyebrow">교사 모드</span>
+        <h1>교사 코드를 입력해 주세요</h1>
+        <p class="sub" style="margin-top:8px;">관리자만 입장할 수 있습니다.</p>
+        <div class="spacer"></div>
+        <input id="teachCode" class="pin-input" type="password" inputmode="numeric" maxlength="8" placeholder="••••" autocomplete="off" />
+        <p id="teachErr" style="color:var(--alert);font-size:13px;font-weight:700;margin:8px 2px 0;min-height:18px;"></p>
+        <div class="yn" style="margin-top:10px;">
+          <button class="btn no" onclick="go('c-intro')">취소</button>
+          <button class="btn no" onclick="submitTeacherCode()">입장</button>
+        </div>
+      </section>
+
+      <!-- 교사 대시보드 -->
+      <section class="screen" id="c-teach-dash">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <span class="eyebrow">대시보드</span>
+          <button type="button" class="teacher-link" style="margin:0;" onclick="go('c-intro')">잠금</button>
+        </div>
+        <h1 style="font-size:24px;margin-top:4px;">디벗 점검 현황</h1>
+
+        <div class="kpi-grid" id="kpiGrid"></div>
+
+        <div class="dash-section">
+          <h3>학년·반별 응답 현황</h3>
+          <div class="dash-scroll">
+            <table class="mini-table" id="classTable">
+              <thead><tr><th>학년</th><th>반</th><th class="num">응답</th><th class="num">이슈</th><th class="num">반출</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="dash-section">
+          <h3>분류별 명단</h3>
+          <div class="tabs-row" id="tabsRow">
+            <button class="tab-btn active" data-tab="q1No">디벗 미소지</button>
+            <button class="tab-btn" data-tab="q2Yes">디벗 고장</button>
+            <button class="tab-btn" data-tab="q3No">디벗펜 미소지</button>
+            <button class="tab-btn" data-tab="q4Yes">방학 반출</button>
+          </div>
+          <div class="dash-scroll" style="margin-top:6px;" id="tabBody"></div>
+        </div>
+
+        <div style="margin-top:12px;">
+          <button class="btn no" style="width:100%;" onclick="loadDashboardData()">새로고침</button>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <canvas id="confetti"></canvas>
+  <div class="toast" id="toast"></div>
+  <div class="debug" id="debug"><div class="row"><span class="t">--:--:--</span><span class="s info">i</span><span class="m">디버그 로그가 여기에 표시됩니다.</span></div></div>
+  <button type="button" class="debug-toggle" id="debugToggle" onclick="toggleDebug()">LOG</button>
+
+<script>
+/* ===== 응답 데이터 (백엔드 연동 시 이 객체를 전송) ===== */
+const data = { timestamp:null, grade:'', class:'', number:'', name:'', q1:'', q2:'', q3:'', q4:'', signature:null };
+
+/* ===== 화면 전환 ===== */
+const order = ['c-q1','c-q2','c-q3','c-q4'];
+function setProgress(id){
+  const prog = document.getElementById('prog');
+  const hideOn = ['c-intro','c-info','c-done'];
+  prog.classList.toggle('hide', hideOn.includes(id));
+  const map = {'c-q1-1':'c-q1','c-q2-1':'c-q2','c-q3-1':'c-q3','c-q4-1':'c-q4'};
+  const ref = map[id] || id;
+  let idx = order.indexOf(ref);
+  let pct = idx<0 ? 0 : ((idx+1)/order.length)*100;
+  if(id==='c-done') pct = 100;
+  prog.querySelector('i').style.width = pct+'%';
+}
+const history = [];
+const noBackOn = ['c-intro','c-done','c-teach-login','c-teach-dash'];
+
+function go(id, opts){
+  opts = opts || {};
+  const current = document.querySelector('.screen.active');
+  if (id === 'c-intro' || id === 'c-done') {
+    history.length = 0;
+  } else if (current && !opts.back && current.id !== id) {
+    history.push(current.id);
+    if (history.length > 50) history.shift();
+  }
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  const el = document.getElementById(id);
+  el.classList.add('active');
+  setProgress(id);
+  updateBackBtn(id);
+  window.scrollTo(0,0);
+  if(id==='c-q4-1') setupSig();
+  if(id==='c-done') finish();
+}
+
+function updateBackBtn(id){
+  const btn = document.getElementById('backBtn');
+  if (!btn) return;
+  const hide = noBackOn.includes(id) || history.length === 0;
+  btn.classList.toggle('hide', hide);
+}
+
+function goBack(){
+  if (!history.length) return;
+  const prev = history.pop();
+  go(prev, {back:true});
+}
+
+function ans(key,val,next){ data[key]=val; go(next); }
+
+/* ===== 카드0 검증 ===== */
+function submitInfo(){
+  const g=document.getElementById('f-grade').value;
+  const c=document.getElementById('f-class').value;
+  const n=document.getElementById('f-num').value.trim();
+  const nm=document.getElementById('f-name').value.trim();
+  const err=document.getElementById('info-err');
+  if(!g||!c){ err.textContent='학년과 반을 선택해 주세요.'; return; }
+  if(!n||Number(n)<1){ err.textContent='번호를 숫자로 입력해 주세요.'; return; }
+  if(!nm){ err.textContent='이름을 입력해 주세요.'; return; }
+  err.textContent='';
+  data.grade=g; data.class=c; data.number=n; data.name=nm;
+  go('c-q1');
+}
+
+/* ===== 서명 캔버스 ===== */
+let ctx, drawing=false, hasInk=false, last=null;
+let sigLogicalW = 0, sigLogicalH = 0;
+
+function setupSig(){
+  hasInk=false;
+  document.getElementById('sig-err').textContent='';
+  document.getElementById('sigwm').style.display='grid';
+  const typed = document.getElementById('sig-typed');
+  if (typed) typed.value = '';
+  document.getElementById('sigwrap').classList.remove('lit');
+
+  const canvas=document.getElementById('sigpad');
+  const wrap=document.getElementById('sigwrap');
+  const dpr=window.devicePixelRatio||1;
+  const r=wrap.getBoundingClientRect();
+  sigLogicalW = r.width; sigLogicalH = r.height;
+  canvas.width=r.width*dpr; canvas.height=r.height*dpr;
+  canvas.style.width=r.width+'px'; canvas.style.height=r.height+'px';
+  ctx=canvas.getContext('2d'); ctx.scale(dpr,dpr);
+  ctx.lineWidth=3; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.strokeStyle='#1F2138';
+
+  const pos=e=>{ const b=canvas.getBoundingClientRect(); const t=e.touches?e.touches[0]:e; return {x:t.clientX-b.left,y:t.clientY-b.top}; };
+  const start=e=>{
+    e.preventDefault(); drawing=true; last=pos(e);
+    // 손으로 그리기 시작하면 자판 입력 텍스트 지워지지 않도록,
+    // 자판 입력 상태였다면 캔버스 클리어 후 새로 그리기 시작
+    if (document.getElementById('sig-typed').value){
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      document.getElementById('sig-typed').value = '';
+    }
+    if(!hasInk){
+      hasInk=true;
+      document.getElementById('sigwm').style.display='none';
+      wrap.classList.add('lit');
+    }
+  };
+  const move=e=>{ if(!drawing)return; e.preventDefault(); const p=pos(e);
+    ctx.beginPath(); ctx.moveTo(last.x,last.y); ctx.lineTo(p.x,p.y); ctx.stroke(); last=p; };
+  const end=()=>{ drawing=false; };
+  ['mousedown','touchstart'].forEach(ev=>canvas.addEventListener(ev,start,{passive:false}));
+  ['mousemove','touchmove'].forEach(ev=>canvas.addEventListener(ev,move,{passive:false}));
+  ['mouseup','mouseleave','touchend'].forEach(ev=>canvas.addEventListener(ev,end));
+}
+
+/* 자판 입력 → 손글씨 폰트로 캔버스에 렌더링 */
+function renderTypedSig(text){
+  if(!ctx) return;
+  const canvas=document.getElementById('sigpad');
+  const wrap=document.getElementById('sigwrap');
+  const wm=document.getElementById('sigwm');
+  // 캔버스 초기화
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const t = (text||'').trim();
+  if(!t){
+    hasInk=false;
+    wm.style.display='grid';
+    wrap.classList.remove('lit');
+    return;
+  }
+  hasInk=true;
+  wm.style.display='none';
+  wrap.classList.add('lit');
+
+  // 캔버스 폭에 맞춰 글자 크기 자동 조정
+  ctx.fillStyle = '#1F2138';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const maxWidth = sigLogicalW * 0.8;
+  let fontSize = Math.floor(sigLogicalH * 0.55);
+  ctx.font = fontSize + 'px "Nanum Pen Script","Gaegu",cursive';
+  // 폰트가 너무 크면 축소
+  while (ctx.measureText(t).width > maxWidth && fontSize > 20){
+    fontSize -= 2;
+    ctx.font = fontSize + 'px "Nanum Pen Script","Gaegu",cursive';
+  }
+  ctx.fillText(t, sigLogicalW/2, sigLogicalH/2);
+}
+
+function clearSig(){
+  const canvas=document.getElementById('sigpad');
+  if(ctx) ctx.clearRect(0,0,canvas.width,canvas.height);
+  hasInk=false;
+  document.getElementById('sigwm').style.display='grid';
+  document.getElementById('sigwrap').classList.remove('lit');
+  const typed=document.getElementById('sig-typed');
+  if (typed) typed.value='';
+}
+
+function submitSig(){
+  if(!hasInk){ document.getElementById('sig-err').textContent='이름을 정자로 서명해 주세요.'; return; }
+  data.signature=document.getElementById('sigpad').toDataURL('image/png');
+  go('c-done');
+}
+
+/* ===== 디버그 로그 ===== */
+function dlog(msg, level){
+  try{
+    var d = document.getElementById('debug');
+    if(!d) return;
+    var now = new Date();
+    var hh = String(now.getHours()).padStart(2,'0');
+    var mm = String(now.getMinutes()).padStart(2,'0');
+    var ss = String(now.getSeconds()).padStart(2,'0');
+    var cls = level === 'ok' ? 'ok' : (level === 'err' ? 'err' : 'info');
+    var sym = level === 'ok' ? 'O' : (level === 'err' ? 'X' : 'i');
+    var row = document.createElement('div');
+    row.className = 'row';
+    row.innerHTML = '<span class="t">'+hh+':'+mm+':'+ss+'</span><span class="s '+cls+'">'+sym+'</span><span class="m"></span>';
+    row.querySelector('.m').textContent = String(msg);
+    d.appendChild(row);
+    d.scrollTop = d.scrollHeight;
+    console.log('[디벗점검]', msg);
+  }catch(e){ console.log('[dlog 실패]', e); }
+}
+function toggleDebug(){
+  var d = document.getElementById('debug');
+  if(!d) return;
+  d.classList.toggle('show');
+}
+
+/* ===== 완료 / 전송 ===== */
+function finish(){
+  data.timestamp = new Date().toISOString();
+  dlog('[1/5] finish() 시작 - 응답 데이터 준비', 'info');
+  dlog('payload: ' + JSON.stringify({grade:data.grade, class:data.class, number:data.number, name:data.name, q1:data.q1, q2:data.q2, q3:data.q3, q4:data.q4, sig:data.signature?'있음':'없음'}), 'info');
+
+  launchConfetti();
+  showToast('응답을 저장하는 중...');
+
+  if (typeof google === 'undefined' || !google.script || !google.script.run){
+    dlog('[X] google.script.run 사용 불가 - 미리보기 모드', 'err');
+    showToast('미리보기 모드(저장되지 않음)');
+    return;
+  }
+
+  dlog('[2/5] 백엔드로 전송 시도 중...', 'info');
+  try{
+    google.script.run
+      .withSuccessHandler(function(res){
+        dlog('[4/5] 서버 응답 수신', 'info');
+        if(res && res.ok){
+          dlog('[5/5] 저장 성공', 'ok');
+          showToast('응답이 저장되었습니다.');
+        } else {
+          var m = (res && res.msg) ? res.msg : '알 수 없는 오류';
+          dlog('[5/5] 저장 실패: ' + m, 'err');
+          showToast('저장 실패: ' + m);
+        }
+      })
+      .withFailureHandler(function(err){
+        dlog('[4/5] 통신 실패: ' + (err && err.message ? err.message : err), 'err');
+        showToast('통신 오류: ' + (err && err.message ? err.message : '서버 응답 없음'));
+      })
+      .saveResponse(data);
+    dlog('[3/5] saveResponse 호출 완료 - 응답 대기', 'ok');
+  } catch(e){
+    dlog('[X] 호출 중 예외: ' + e.message, 'err');
+    showToast('전송 오류: ' + e.message);
+  }
+}
+
+/* ===== 교사 모드 ===== */
+function goTeacherLogin(){
+  dlog('교사 로그인 화면 이동', 'info');
+  go('c-teach-login');
+  setTimeout(function(){ var el=document.getElementById('teachCode'); if(el) el.focus(); }, 200);
+}
+
+function submitTeacherCode(){
+  var code = (document.getElementById('teachCode').value || '').trim();
+  var errEl = document.getElementById('teachErr');
+  errEl.textContent = '';
+  if(!code){ errEl.textContent='코드를 입력해 주세요.'; return; }
+
+  dlog('교사 코드 검증 요청', 'info');
+  if (typeof google === 'undefined' || !google.script || !google.script.run){
+    errEl.textContent = '미리보기 모드에서는 인증 불가';
+    dlog('google.script.run 없음', 'err');
+    return;
+  }
+  google.script.run
+    .withSuccessHandler(function(ok){
+      if(!ok){
+        errEl.textContent='코드가 일치하지 않습니다.';
+        dlog('교사 코드 불일치', 'err');
+        return;
+      }
+      dlog('교사 인증 성공', 'ok');
+      window._teacherCode = code;
+      go('c-teach-dash');
+      loadDashboardData();
+    })
+    .withFailureHandler(function(err){
+      errEl.textContent='서버 오류: ' + (err.message || err);
+      dlog('교사 인증 통신 실패: ' + err.message, 'err');
+    })
+    .verifyTeacher(code);
+}
+
+var _dashState = { raw:null, tab:'q1No' };
+
+function loadDashboardData(){
+  if(!window._teacherCode){ dlog('교사 코드 없음', 'err'); return; }
+  dlog('대시보드 데이터 요청', 'info');
+  google.script.run
+    .withSuccessHandler(function(res){
+      if(!res || !res.ok){
+        dlog('대시보드 로드 실패: ' + (res && res.msg ? res.msg : '응답 없음'), 'err');
+        return;
+      }
+      _dashState.raw = res;
+      dlog('대시보드 로드 성공 (총 응답 ' + res.total + '건)', 'ok');
+      renderKpi(res);
+      renderClassTable(res);
+      renderTabBody();
+      bindTabs();
+    })
+    .withFailureHandler(function(err){
+      dlog('대시보드 통신 실패: ' + err.message, 'err');
+    })
+    .getDashboardData(window._teacherCode);
+}
+
+function renderKpi(res){
+  var c = res.counters || {};
+  var items = [
+    ['총 응답',       res.total||0, ''],
+    ['디벗 미소지',   c.q1No||0,   'alert'],
+    ['디벗 고장',     c.q2Yes||0,  'warn'],
+    ['디벗펜 미소지', c.q3No||0,   'alert'],
+    ['방학 반출',     c.q4Yes||0,  'ok']
+  ];
+  var html = items.map(function(it){
+    return '<div class="kpi-card '+it[2]+'"><div class="lbl">'+it[0]+'</div><div class="num">'+it[1]+'</div></div>';
+  }).join('');
+  document.getElementById('kpiGrid').innerHTML = html;
+}
+
+function renderClassTable(res){
+  var rows = res.classRows || [];
+  var tb = document.querySelector('#classTable tbody');
+  if(!rows.length){ tb.innerHTML = '<tr><td colspan="5" class="empty-row">응답 없음</td></tr>'; return; }
+  tb.innerHTML = rows.map(function(r){
+    return '<tr><td>'+r.grade+'</td><td>'+r.klass+'</td><td class="num">'+r.total+'</td><td class="num">'+r.issue+'</td><td class="num">'+r.q4+'</td></tr>';
+  }).join('');
+}
+
+function bindTabs(){
+  var btns = document.querySelectorAll('#tabsRow .tab-btn');
+  btns.forEach(function(b){
+    b.onclick = function(){
+      btns.forEach(function(x){ x.classList.remove('active'); });
+      b.classList.add('active');
+      _dashState.tab = b.dataset.tab;
+      renderTabBody();
+    };
+  });
+}
+
+function renderTabBody(){
+  var body = document.getElementById('tabBody');
+  if(!_dashState.raw){ body.innerHTML=''; return; }
+  var list = (_dashState.raw.lists && _dashState.raw.lists[_dashState.tab]) || [];
+  if(!list.length){ body.innerHTML = '<div class="empty-row">해당 명단이 없습니다.</div>'; return; }
+
+  if(_dashState.tab === 'q4Yes'){
+    body.innerHTML = '<table class="mini-table"><thead><tr><th>학년</th><th>반</th><th class="num">번호</th><th>이름</th><th>서명</th></tr></thead><tbody>' +
+      list.map(function(r){
+        var sig = r['서명URL'] ? '<img class="sig-thumb" src="'+r['서명URL']+'" alt="서명">' : '-';
+        return '<tr><td>'+(r['학년']||'')+'</td><td>'+(r['반']||'')+'</td><td class="num">'+(r['번호']||'')+'</td><td>'+(r['이름']||'')+'</td><td>'+sig+'</td></tr>';
+      }).join('') + '</tbody></table>';
+  } else {
+    body.innerHTML = '<table class="mini-table"><thead><tr><th>학년</th><th>반</th><th class="num">번호</th><th>이름</th><th>응답일시</th></tr></thead><tbody>' +
+      list.map(function(r){
+        return '<tr><td>'+(r['학년']||'')+'</td><td>'+(r['반']||'')+'</td><td class="num">'+(r['번호']||'')+'</td><td>'+(r['이름']||'')+'</td><td style="font-size:11px;color:var(--ink-soft);">'+(r['응답일시']||'')+'</td></tr>';
+      }).join('') + '</tbody></table>';
+  }
+}
+
+window.addEventListener('DOMContentLoaded', function(){
+  dlog('페이지 로드 완료', 'ok');
+  dlog('google.script.run: ' + (typeof google!=='undefined' && google.script && google.script.run ? '사용 가능' : '없음(미리보기)'), 'info');
+  dlog('화면 크기: ' + window.innerWidth + 'x' + window.innerHeight, 'info');
+});
+function showToast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),3200); }
+
+/* ===== 폭죽 ===== */
+function launchConfetti(){
+  if(window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const cv=document.getElementById('confetti'); const cx=cv.getContext('2d');
+  cv.width=innerWidth; cv.height=innerHeight;
+  const colors=['#5B4BDB','#FFB627','#EC4C2B','#16A37B','#7B6CF0','#F59300'];
+  let parts=[];
+  function burst(x,y,n){ for(let i=0;i<n;i++){ const a=Math.random()*Math.PI*2, sp=4+Math.random()*8;
+    parts.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-3,g:.18+Math.random()*.12,
+      s:5+Math.random()*7,r:Math.random()*6,vr:(Math.random()-.5)*.4,
+      c:colors[i%colors.length],life:90+Math.random()*40}); } }
+  const W=cv.width,H=cv.height;
+  [[0,0],[W,0],[0,H],[W,H],[W/2,H/2]].forEach(p=>burst(p[0],p[1],55));
+  let frames=0;
+  (function tick(){
+    cx.clearRect(0,0,cv.width,cv.height);
+    parts.forEach(p=>{ p.vy+=p.g; p.x+=p.vx; p.y+=p.vy; p.r+=p.vr; p.life--;
+      cx.save(); cx.translate(p.x,p.y); cx.rotate(p.r); cx.fillStyle=p.c;
+      cx.globalAlpha=Math.max(0,p.life/40); cx.fillRect(-p.s/2,-p.s/2,p.s,p.s*.6); cx.restore(); });
+    parts=parts.filter(p=>p.life>0 && p.y<H+40);
+    frames++;
+    if(frames===45||frames===95) [[0,0],[W,0],[0,H],[W,H]].forEach(p=>burst(p[0],p[1],40));
+    if(parts.length>0) requestAnimationFrame(tick); else cx.clearRect(0,0,cv.width,cv.height);
+  })();
+}
+window.addEventListener('resize',()=>{ const cv=document.getElementById('confetti'); cv.width=innerWidth; cv.height=innerHeight; });
+</script>
+</body>
+</html>
