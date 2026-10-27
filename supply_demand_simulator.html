@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>수요·공급 시뮬레이터</title>
+<style>
+  :root{
+    --bg:#f7f8fa; --panel:#ffffff; --ink:#1f2933; --muted:#64748b; --line:#e2e8f0;
+    --demand:#2563eb; --supply:#16a34a;
+    --demand2:#dc2626; --supply2:#ea580c;
+    --ghost:#94a3b8; --accent:#111827;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:Pretendard,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+       background:var(--bg);color:var(--ink);}
+  .wrap{max-width:1180px;margin:0 auto;padding:18px;}
+  h1{font-size:20px;margin:0 0 4px;}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 14px;}
+  .tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;}
+  .tab{padding:9px 18px;border:1px solid var(--line);background:var(--panel);border-radius:8px;
+       cursor:pointer;font-size:14px;font-weight:600;color:var(--muted);}
+  .tab.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;}
+  @media(max-width:900px){.layout{grid-template-columns:1fr;}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;}
+  canvas{width:100%;height:auto;display:block;}
+  .panel h2{font-size:14px;margin:0 0 10px;padding-bottom:8px;border-bottom:1px solid var(--line);}
+  .panel h2:not(:first-child){margin-top:18px;}
+  .ctl{margin-bottom:12px;}
+  .ctl label{display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px;font-weight:600;}
+  .ctl label span{color:var(--muted);font-weight:500;}
+  input[type=range]{width:100%;}
+  .hint{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.5;}
+  .presets{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;}
+  .preset{font-size:12px;padding:7px 6px;border-radius:7px;border:1px solid var(--line);
+          background:#fff;cursor:pointer;font-weight:600;}
+  .preset.d{color:var(--demand2);border-color:#fcaca8;}
+  .preset.s{color:var(--supply2);border-color:#fed7aa;}
+  .preset:hover{background:#f1f5f9;}
+  .pgroup-title{font-size:11px;color:var(--muted);margin:10px 0 4px;font-weight:700;letter-spacing:.3px;}
+  .chk{display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:8px;cursor:pointer;}
+  .reset{width:100%;padding:12px;border:none;border-radius:9px;background:#dc2626;color:#fff;
+         font-size:14px;font-weight:700;cursor:pointer;margin-top:8px;}
+  .reset:hover{background:#b91c1c;}
+  .readout{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px;}
+  .kpi{background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:8px 10px;}
+  .kpi .lab{font-size:11px;color:var(--muted);}
+  .kpi .val{font-size:19px;font-weight:700;}
+  .kpi .dlt{font-size:11px;font-weight:600;}
+  .up{color:#dc2626;} .down{color:#2563eb;} .flat{color:var(--muted);}
+  .seg{display:flex;gap:4px;margin-bottom:6px;}
+  .seg button{flex:1;font-size:12px;padding:6px;border:1px solid var(--line);background:#fff;
+              border-radius:6px;cursor:pointer;}
+  .seg button.on{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .note{font-size:12px;line-height:1.6;background:#f8fafc;border:1px solid var(--line);
+        border-radius:8px;padding:9px 11px;margin-top:6px;color:#334155;}
+  .hide{display:none;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>수요·공급 시뮬레이터</h1>
+  <p class="sub">슬라이더를 움직여 곡선의 <b>이동</b>과 <b>기울기(탄력성)</b> 변화를 관찰하세요. 이동 시에는 이전 곡선이 점선으로 남고, 기울기 변경 시에는 그 곡선이 새 기준이 됩니다.</p>
+
+  <div class="tabs">
+    <div class="tab" data-tab="demand">① 수요곡선</div>
+    <div class="tab" data-tab="supply">② 공급곡선</div>
+    <div class="tab active" data-tab="market">③ 수요 + 공급 (시장)</div>
+  </div>
+
+  <div class="layout">
+    <div class="card"><canvas id="cv" width="820" height="620"></canvas></div>
+
+    <div class="card panel">
+      <!-- 시장 KPI -->
+      <div id="kpiBox">
+        <h2>시장 균형</h2>
+        <div class="readout">
+          <div class="kpi"><div class="lab">균형가격 P*</div><div class="val" id="kPrice">50</div><div class="dlt" id="kPriceD"></div></div>
+          <div class="kpi"><div class="lab">균형거래량 Q*</div><div class="val" id="kQty">50</div><div class="dlt" id="kQtyD"></div></div>
+        </div>
+        <div class="note" id="eqNote">초기 균형 상태입니다.</div>
+      </div>
+
+      <h2>곡선 이동 (평행이동)</h2>
+      <div class="ctl" id="dShiftWrap">
+        <label>수요곡선 이동 <span id="dShiftV">0</span></label>
+        <input type="range" id="dShift" min="-30" max="30" value="0" step="1">
+        <div class="hint">오른쪽(+)=수요 증가 · 왼쪽(−)=수요 감소. 이동 시 이전 곡선이 <b style="color:#94a3b8">회색 점선</b>으로 남습니다.</div>
+      </div>
+      <div class="ctl" id="sShiftWrap">
+        <label>공급곡선 이동 <span id="sShiftV">0</span></label>
+        <input type="range" id="sShift" min="-30" max="30" value="0" step="1">
+        <div class="hint">오른쪽(+)=공급 증가 · 왼쪽(−)=공급 감소.</div>
+      </div>
+
+      <h2>기울기 (탄력성)</h2>
+      <div class="ctl" id="dSlopeWrap">
+        <label>수요곡선 기울기 <span id="dSlopeV">보통</span></label>
+        <input type="range" id="dSlope" min="30" max="220" value="100" step="1">
+        <div class="hint">완만할수록 <b>탄력적</b>. 초기 균형점을 축으로 회전하며, <b>이 곡선이 새 기준</b>이 됩니다(점선 안 남음).</div>
+      </div>
+      <div class="ctl" id="sSlopeWrap">
+        <label>공급곡선 기울기 <span id="sSlopeV">보통</span></label>
+        <input type="range" id="sSlope" min="30" max="220" value="100" step="1">
+      </div>
+
+      <!-- 프리셋 -->
+      <div id="presetBox">
+        <h2>이동 요인 (프리셋)</h2>
+        <div class="pgroup-title">수요 변화 요인</div>
+        <div class="presets">
+          <button class="preset d" data-pre="dUp">소득↑(정상재)</button>
+          <button class="preset d" data-pre="dUp2">대체재 가격↑</button>
+          <button class="preset d" data-pre="dDn">소득↑(열등재)</button>
+          <button class="preset d" data-pre="dDn2">보완재 가격↑</button>
+        </div>
+        <div class="pgroup-title">공급 변화 요인</div>
+        <div class="presets">
+          <button class="preset s" data-pre="sUp">기술 발전</button>
+          <button class="preset s" data-pre="sUp2">원자재 가격↓</button>
+          <button class="preset s" data-pre="sDn">임금 상승</button>
+          <button class="preset s" data-pre="sDn2">원자재 가격↑</button>
+        </div>
+      </div>
+
+      <!-- 가격선 (단독 탭) -->
+      <div id="priceBox" class="hide">
+        <h2>가격선</h2>
+        <div class="ctl">
+          <label>가격 P <span id="pLineV">50</span></label>
+          <input type="range" id="pLine" min="5" max="105" value="50" step="1">
+          <div class="hint">가격만 바꾸면 곡선 <b>위에서 점이 이동</b>(수요량/공급량 변화)합니다. 곡선 자체의 이동(수요/공급 변화)과 구분하세요.</div>
+        </div>
+        <div class="note" id="qtyNote"></div>
+      </div>
+
+      <!-- 심화 (시장) -->
+      <div id="advBox">
+        <h2>심화 분석</h2>
+        <label class="chk"><input type="checkbox" id="surplus"> 소비자·생산자잉여 표시</label>
+        <div class="pgroup-title">가격 통제</div>
+        <div class="seg">
+          <button data-pc="none" class="on">없음</button>
+          <button data-pc="ceiling">가격상한</button>
+          <button data-pc="floor">가격하한</button>
+        </div>
+        <div class="ctl" id="pcWrap" style="display:none;">
+          <label>통제 가격 <span id="pcV">50</span></label>
+          <input type="range" id="pcPrice" min="10" max="100" value="50" step="1">
+        </div>
+        <div class="pgroup-title">종량세 (공급자 부과)</div>
+        <div class="ctl">
+          <label>세금 t <span id="taxV">0</span></label>
+          <input type="range" id="tax" min="0" max="50" value="0" step="1">
+          <div class="hint">세후 공급곡선이 위로 이동하고, 세금 쐐기·조세수입·자중손실이 표시됩니다.</div>
+        </div>
+        <div class="note hide" id="taxNote"></div>
+      </div>
+
+      <button class="reset" id="reset">↺ 전체 초기화 (원상태로)</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===== 모델 =====
+   초기 균형점 (Q0,P0)=(50,50)을 축으로 한다.
+   기울기 b,s 는 (50,50)을 지나도록 절편 a,c 를 재계산 → 기울기 변경은 "기준 곡선"을 바꾼다(점선 안 남김).
+   수요:  P = a - b*Q,  a = P0 + b*Q0
+   공급:  P = c + s*Q,  c = P0 - s*Q0
+   평행이동 shiftD(+오른쪽): 수요 절편 += b*shiftD
+   평행이동 shiftS(+오른쪽): 공급 절편 -= s*shiftS
+================================================================ */
+var Q0=50, P0=50, QMAX=110, PMAX=110;
+var st;
+function defaults(){
+  return {tab:'market', b:1, s:1, shiftD:0, shiftS:0,
+          surplus:false, pc:'none', pcPrice:50, tax:0, pLine:50};
+}
+st = defaults();
+
+/* 슬라이더값(30~220, 100=기본)을 기울기로 변환: 100 -> 1.0 */
+function slopeFromSlider(v){ return v/100; }
+
+function dParams(){ var b=st.b; var a=P0+b*Q0; return {a:a+b*st.shiftD, b:b, a0:a}; }
+function sParams(){ var s=st.s; var c=P0-s*Q0; return {c:c-s*st.shiftS, s:s, c0:c}; }
+
+function eqOf(d,sp){
+  // a - bQ = c + sQ  -> Q=(a-c)/(b+s)
+  var Q=(d.a - sp.c)/(d.b + sp.s);
+  var P=sp.c + sp.s*Q;
+  return {Q:Q, P:P};
+}
+
+/* ===== 캔버스 설정 ===== */
+var cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+var W=cv.width, H=cv.height;
+var ML=78, MR=135, MT=48, MB=78;            // 넉넉한 여백(라벨 잘림 방지)
+var PW=W-ML-MR, PH=H-MT-MB;
+function X(q){ return ML + (q/QMAX)*PW; }
+function Y(p){ return MT + PH - (p/PMAX)*PH; }
+
+function clearBg(){
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,W,H);
+}
+function grid(){
+  ctx.strokeStyle='#eef2f6'; ctx.lineWidth=1;
+  for(var q=0;q<=QMAX;q+=10){ ctx.beginPath(); ctx.moveTo(X(q),Y(0)); ctx.lineTo(X(q),Y(PMAX)); ctx.stroke(); }
+  for(var p=0;p<=PMAX;p+=10){ ctx.beginPath(); ctx.moveTo(X(0),Y(p)); ctx.lineTo(X(QMAX),Y(p)); ctx.stroke(); }
+}
+function axes(){
+  ctx.strokeStyle='#334155'; ctx.lineWidth=2;
+  // Y axis
+  ctx.beginPath(); ctx.moveTo(X(0),Y(0)); ctx.lineTo(X(0),Y(PMAX)); ctx.stroke();
+  // X axis
+  ctx.beginPath(); ctx.moveTo(X(0),Y(0)); ctx.lineTo(X(QMAX),Y(0)); ctx.stroke();
+  // arrows
+  ctx.fillStyle='#334155';
+  ctx.beginPath(); ctx.moveTo(X(0),Y(PMAX)); ctx.lineTo(X(0)-5,Y(PMAX)+10); ctx.lineTo(X(0)+5,Y(PMAX)+10); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(X(QMAX),Y(0)); ctx.lineTo(X(QMAX)-10,Y(0)-5); ctx.lineTo(X(QMAX)-10,Y(0)+5); ctx.fill();
+  // axis titles
+  tagText('가격(P)', X(0), MT-24, '#334155', 'center');
+  tagText('수량(Q)', X(QMAX)+6, Y(0)+6, '#334155', 'left');
+  // ticks
+  ctx.fillStyle='#94a3b8'; ctx.font='11px Pretendard'; ctx.textAlign='right'; ctx.textBaseline='middle';
+  for(var p=20;p<=100;p+=20){ ctx.fillText(p, X(0)-8, Y(p)); }
+  ctx.textAlign='center'; ctx.textBaseline='top';
+  for(var q=20;q<=100;q+=20){ ctx.fillText(q, X(q), Y(0)+8); }
+}
+/* 라벨 배경 박스 + 글자 (겹침/잘림 방지) */
+function label(text, x, y, color){
+  ctx.font='bold 13px Pretendard';
+  var w=ctx.measureText(text).width;
+  var padX=6, padY=4, bw=w+padX*2, bh=20;
+  // 캔버스 안으로 보정
+  if(x+bw > W-4) x = W-4-bw;
+  if(x < 2) x = 2;
+  if(y < 2) y = 2;
+  if(y+bh > H-2) y = H-2-bh;
+  ctx.fillStyle='rgba(255,255,255,0.92)';
+  ctx.strokeStyle=color; ctx.lineWidth=1;
+  roundRect(x,y,bw,bh,5); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=color; ctx.textAlign='left'; ctx.textBaseline='middle';
+  ctx.fillText(text, x+padX, y+bh/2+1);
+}
+function tagText(text,x,y,color,align){
+  ctx.font='12px Pretendard'; ctx.fillStyle=color;
+  ctx.textAlign=align||'left'; ctx.textBaseline='middle'; ctx.fillText(text,x,y);
+}
+function roundRect(x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+}
+/* 직선: P=a - b*Q (수요) 혹은 P=c + s*Q (공급) — 플롯영역 내 구간만 */
+function lineSeg(fn){
+  // returns two endpoints clipped to [0,QMAX]x[0,PMAX]
+  var pts=[];
+  // sample across Q
+  var q1=0, q2=QMAX;
+  var P1=fn(q1), P2=fn(q2);
+  return {q1:q1,P1:P1,q2:q2,P2:P2};
+}
+function drawLine(fn, color, width, dash){
+  ctx.save();
+  ctx.strokeStyle=color; ctx.lineWidth=width; ctx.setLineDash(dash||[]);
+  ctx.beginPath();
+  var first=true;
+  for(var q=0;q<=QMAX;q+=0.5){
+    var p=fn(q);
+    if(p<-5||p>PMAX+5) { first=true; continue; }
+    var x=X(q), y=Y(p);
+    if(first){ ctx.moveTo(x,y); first=false; } else ctx.lineTo(x,y);
+  }
+  ctx.stroke(); ctx.restore();
+}
+function dot(q,p,color,filled){
+  var x=X(q),y=Y(p);
+  ctx.beginPath(); ctx.arc(x,y,5,0,Math.PI*2);
+  if(filled){ ctx.fillStyle=color; ctx.fill(); }
+  else { ctx.fillStyle='#fff'; ctx.fill(); ctx.strokeStyle=color; ctx.lineWidth=2; ctx.stroke(); }
+}
+function guide(q,p){ // 점선 안내선 (축까지)
+  ctx.save(); ctx.strokeStyle='#cbd5e1'; ctx.lineWidth=1; ctx.setLineDash([4,4]);
+  ctx.beginPath(); ctx.moveTo(X(q),Y(p)); ctx.lineTo(X(0),Y(p)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(X(q),Y(p)); ctx.lineTo(X(q),Y(0)); ctx.stroke();
+  ctx.restore();
+}
+
+/* ===== 그리기 ===== */
+function draw(){
+  clearBg(); grid(); axes();
+  if(st.tab==='demand') drawDemand();
+  else if(st.tab==='supply') drawSupply();
+  else drawMarket();
+}
+
+function drawDemand(){
+  var d=dParams();
+  var fnNow=function(q){return d.a - d.b*q;};
+  // 이전(이동 전) 곡선 — 평행이동이 있을 때만 점선
+  if(st.shiftD!==0){
+    var fn0=function(q){return d.a0 - d.b*q;};
+    drawLine(fn0,'#94a3b8',2,[7,6]);
+    label('D₀(이전)', X(QMAX*0.78), Y(d.a0 - d.b*QMAX*0.78)-26, '#94a3b8');
+  }
+  var col = st.shiftD!==0 ? '#dc2626' : '#2563eb';
+  drawLine(fnNow,col,3.5,[]);
+  var lbl = st.shiftD!==0 ? 'D₁(이동 후)' : 'D (수요)';
+  label(lbl, X(QMAX*0.72), Y(d.a - d.b*QMAX*0.72)-4, col);
+
+  // 가격선 → 수요량
+  var p=st.pLine;
+  var qd=(d.a - p)/d.b;
+  ctx.save(); ctx.strokeStyle='#6366f1'; ctx.lineWidth=2; ctx.setLineDash([6,4]);
+  ctx.beginPath(); ctx.moveTo(X(0),Y(p)); ctx.lineTo(X(QMAX),Y(p)); ctx.stroke(); ctx.restore();
+  label('P='+p, X(2), Y(p)-10, '#6366f1');
+  if(qd>=0 && qd<=QMAX){
+    guide(qd,p); dot(qd,p,'#6366f1',true);
+    label('Qd='+qd.toFixed(0), X(qd)+6, Y(0)-24, '#6366f1');
+  }
+  document.getElementById('qtyNote').innerHTML =
+    '가격이 <b>'+p+'</b>일 때 수요량 Qd = <b>'+(qd>=0?qd.toFixed(1):'0')+'</b>. 가격을 바꾸면 <b>곡선 위의 점</b>이 이동합니다(수요량 변화). 곡선 전체를 옮기려면 위의 "곡선 이동" 슬라이더를 쓰세요(수요 변화).';
+}
+
+function drawSupply(){
+  var sp=sParams();
+  var fnNow=function(q){return sp.c + sp.s*q;};
+  if(st.shiftS!==0){
+    var fn0=function(q){return sp.c0 + sp.s*q;};
+    drawLine(fn0,'#94a3b8',2,[7,6]);
+    label('S₀(이전)', X(QMAX*0.8), Y(sp.c0 + sp.s*QMAX*0.8)-4, '#94a3b8');
+  }
+  var col = st.shiftS!==0 ? '#ea580c' : '#16a34a';
+  drawLine(fnNow,col,3.5,[]);
+  var lbl = st.shiftS!==0 ? 'S₁(이동 후)' : 'S (공급)';
+  label(lbl, X(QMAX*0.72), Y(sp.c + sp.s*QMAX*0.72)-26, col);
+
+  var p=st.pLine;
+  var qs=(p - sp.c)/sp.s;
+  ctx.save(); ctx.strokeStyle='#6366f1'; ctx.lineWidth=2; ctx.setLineDash([6,4]);
+  ctx.beginPath(); ctx.moveTo(X(0),Y(p)); ctx.lineTo(X(QMAX),Y(p)); ctx.stroke(); ctx.restore();
+  label('P='+p, X(2), Y(p)-10, '#6366f1');
+  if(qs>=0 && qs<=QMAX){
+    guide(qs,p); dot(qs,p,'#6366f1',true);
+    label('Qs='+qs.toFixed(0), X(qs)+6, Y(0)-24, '#6366f1');
+  }
+  document.getElementById('qtyNote').innerHTML =
+    '가격이 <b>'+p+'</b>일 때 공급량 Qs = <b>'+(qs>=0?qs.toFixed(1):'0')+'</b>. 가격을 바꾸면 <b>곡선 위의 점</b>이 이동합니다(공급량 변화).';
+}
+
+function drawMarket(){
+  var d=dParams(), sp=sParams();
+  var dFn=function(q){return d.a - d.b*q;}, sFn=function(q){return sp.c + sp.s*q;};
+  var eq=eqOf(d,sp);
+
+  // 잉여 음영 (세금/통제 없을 때 우선 표시)
+  if(st.surplus && st.tax===0 && st.pc==='none' && eq.Q>0){
+    // CS: 수요선과 P* 사이 (0~Q*)
+    ctx.fillStyle='rgba(37,99,235,0.14)';
+    ctx.beginPath();
+    ctx.moveTo(X(0),Y(eq.P)); ctx.lineTo(X(0),Y(d.a));
+    ctx.lineTo(X(eq.Q),Y(eq.P)); ctx.closePath(); ctx.fill();
+    // PS: P*와 공급선 사이
+    ctx.fillStyle='rgba(22,163,74,0.14)';
+    ctx.beginPath();
+    ctx.moveTo(X(0),Y(eq.P)); ctx.lineTo(X(0),Y(sp.c));
+    ctx.lineTo(X(eq.Q),Y(eq.P)); ctx.closePath(); ctx.fill();
+    label('소비자잉여', X(eq.Q*0.22), Y((eq.P+d.a)/2), '#2563eb');
+    label('생산자잉여', X(eq.Q*0.22), Y((eq.P+sp.c)/2), '#16a34a');
+  }
+
+  // 이전 곡선 (평행이동 시 점선)
+  if(st.shiftD!==0){
+    drawLine(function(q){return d.a0 - d.b*q;},'#94a3b8',2,[7,6]);
+    label('D₀', X(QMAX*0.82), Y(d.a0 - d.b*QMAX*0.82)-26, '#94a3b8');
+  }
+  if(st.shiftS!==0){
+    drawLine(function(q){return sp.c0 + sp.s*q;},'#94a3b8',2,[7,6]);
+    label('S₀', X(QMAX*0.85), Y(sp.c0 + sp.s*QMAX*0.85), '#94a3b8');
+  }
+
+  // 현재 곡선
+  var dCol = st.shiftD!==0 ? '#dc2626' : '#2563eb';
+  var sCol = st.shiftS!==0 ? '#ea580c' : '#16a34a';
+  drawLine(dFn,dCol,3.5,[]);
+  drawLine(sFn,sCol,3.5,[]);
+  label(st.shiftD!==0?'D₁':'D', X(QMAX*0.7), Y(d.a - d.b*QMAX*0.7)-4, dCol);
+  label(st.shiftS!==0?'S₁':'S', X(QMAX*0.7), Y(sp.c + sp.s*QMAX*0.7)-26, sCol);
+
+  // 조세
+  var taxDrawn=false;
+  if(st.tax>0){
+    drawTax(d,sp); taxDrawn=true;
+  }
+  // 가격통제
+  if(st.pc!=='none' && !taxDrawn){
+    drawControl(d,sp,eq);
+  }
+
+  // 균형점 (조세/통제 없을 때 메인)
+  if(!taxDrawn && st.pc==='none'){
+    // 초기 균형 E0
+    if(st.shiftD!==0||st.shiftS!==0||Math.abs(st.b-1)>1e-9||Math.abs(st.s-1)>1e-9){
+      dot(Q0,P0,'#94a3b8',false);
+      label('E₀(50,50)', X(Q0)+8, Y(P0)+8, '#94a3b8');
+    }
+    if(eq.Q>0 && eq.Q<=QMAX){
+      guide(eq.Q,eq.P); dot(eq.Q,eq.P,'#111827',true);
+      label('E*', X(eq.Q)+8, Y(eq.P)-24, '#111827');
+      label('P*='+eq.P.toFixed(0), X(2), Y(eq.P)-10, '#111827');
+      label('Q*='+eq.Q.toFixed(0), X(eq.Q)+4, Y(0)-24, '#111827');
+    }
+  }
+  updateKPI(eq);
+}
+
+function drawControl(d,sp,eq){
+  var pc=st.pcPrice;
+  ctx.save(); ctx.strokeStyle='#7c3aed'; ctx.lineWidth=2.5; ctx.setLineDash([8,5]);
+  ctx.beginPath(); ctx.moveTo(X(0),Y(pc)); ctx.lineTo(X(QMAX),Y(pc)); ctx.stroke(); ctx.restore();
+  var qd=(d.a-pc)/d.b, qs=(pc-sp.c)/sp.s;
+  var kind = st.pc==='ceiling'?'가격상한':'가격하한';
+  label(kind+' '+pc, X(2), Y(pc)-10, '#7c3aed');
+  var msg='';
+  if(st.pc==='ceiling'){
+    if(pc<eq.P){ // 구속력 O → 초과수요(부족)
+      ctx.strokeStyle='#dc2626'; ctx.lineWidth=5;
+      ctx.beginPath(); ctx.moveTo(X(qs),Y(pc)); ctx.lineTo(X(qd),Y(pc)); ctx.stroke();
+      label('초과수요(부족)', X((qs+qd)/2)-20, Y(pc)+8, '#dc2626');
+      msg='가격상한이 균형보다 낮아 <b>구속력이 있습니다</b>. 공급량('+qs.toFixed(0)+') < 수요량('+qd.toFixed(0)+') → <b style="color:#dc2626">물량 부족('+(qd-qs).toFixed(0)+')</b> 발생.';
+    } else msg='가격상한이 균형보다 높아 <b>구속력이 없습니다</b>. 시장은 균형에서 거래됩니다.';
+  } else {
+    if(pc>eq.P){ // 구속력 O → 초과공급(잉여)
+      ctx.strokeStyle='#ea580c'; ctx.lineWidth=5;
+      ctx.beginPath(); ctx.moveTo(X(qd),Y(pc)); ctx.lineTo(X(qs),Y(pc)); ctx.stroke();
+      label('초과공급(과잉)', X((qs+qd)/2)-20, Y(pc)-24, '#ea580c');
+      msg='가격하한이 균형보다 높아 <b>구속력이 있습니다</b>. 공급량('+qs.toFixed(0)+') > 수요량('+qd.toFixed(0)+') → <b style="color:#ea580c">물량 과잉('+(qs-qd).toFixed(0)+')</b> 발생.';
+    } else msg='가격하한이 균형보다 낮아 <b>구속력이 없습니다</b>.';
+  }
+  dot(eq.Q,eq.P,'#94a3b8',false);
+  document.getElementById('eqNote').innerHTML=msg;
+}
+
+function drawTax(d,sp){
+  // 세후 공급: P = (c+t) + s*Q  (공급자 부과 → 위로 t 이동)
+  var t=st.tax;
+  var sFnTax=function(q){return sp.c + t + sp.s*q;};
+  drawLine(sFnTax,'#9333ea',3,[6,3]);
+  label('S+세금', X(QMAX*0.6), Y(sp.c+t+sp.s*QMAX*0.6)-26, '#9333ea');
+  // 새 거래량: a-bQ = c+t+sQ -> Q=(a-c-t)/(b+s)
+  var Qt=(d.a - sp.c - t)/(d.b + sp.s);
+  var Pb=d.a - d.b*Qt;      // 소비자 지불가격
+  var Ps=Pb - t;            // 생산자 수취가격
+  if(Qt>0){
+    // 세금 쐐기
+    ctx.save(); ctx.strokeStyle='#9333ea'; ctx.lineWidth=2; ctx.setLineDash([3,3]);
+    ctx.beginPath(); ctx.moveTo(X(Qt),Y(Ps)); ctx.lineTo(X(Qt),Y(Pb)); ctx.stroke(); ctx.restore();
+    // 조세수입 영역
+    ctx.fillStyle='rgba(147,51,234,0.16)';
+    ctx.beginPath(); ctx.moveTo(X(0),Y(Pb)); ctx.lineTo(X(Qt),Y(Pb));
+    ctx.lineTo(X(Qt),Y(Ps)); ctx.lineTo(X(0),Y(Ps)); ctx.closePath(); ctx.fill();
+    guide(Qt,Pb);
+    dot(Qt,Pb,'#2563eb',true); dot(Qt,Ps,'#16a34a',true);
+    label('Pb(소비자)='+Pb.toFixed(0), X(2), Y(Pb)-10, '#2563eb');
+    label('Ps(생산자)='+Ps.toFixed(0), X(2), Y(Ps)+12, '#16a34a');
+    label('Q='+Qt.toFixed(0), X(Qt)+4, Y(0)-24, '#111827');
+    // 자중손실 (원균형 Q*와 Qt 사이 삼각형)
+    var eq=eqOf(d,sp);
+    ctx.fillStyle='rgba(220,38,38,0.22)';
+    ctx.beginPath(); ctx.moveTo(X(Qt),Y(Pb)); ctx.lineTo(X(Qt),Y(Ps)); ctx.lineTo(X(eq.Q),Y(eq.P)); ctx.closePath(); ctx.fill();
+    var revenue=t*Qt, dwl=0.5*t*(eq.Q-Qt);
+    document.getElementById('taxNote').classList.remove('hide');
+    document.getElementById('taxNote').innerHTML=
+      '세금 t='+t+' 부과 → 거래량 '+eq.Q.toFixed(0)+' → <b>'+Qt.toFixed(0)+'</b>로 감소. 소비자가격 <b>'+Pb.toFixed(0)+'</b>, 생산자수취 <b>'+Ps.toFixed(0)+'</b>. '+
+      '조세수입 ≈ <b>'+revenue.toFixed(0)+'</b>, 자중손실(DWL) ≈ <b style="color:#dc2626">'+dwl.toFixed(0)+'</b>.';
+    // KPI
+    document.getElementById('kPrice').textContent=Pb.toFixed(0);
+    document.getElementById('kQty').textContent=Qt.toFixed(0);
+    document.getElementById('kPriceD').innerHTML=delta(Pb,P0);
+    document.getElementById('kQtyD').innerHTML=delta(Qt,Q0);
+  }
+}
+
+function delta(now,base){
+  var diff=now-base;
+  if(Math.abs(diff)<0.5) return '<span class="flat">변화 없음</span>';
+  if(diff>0) return '<span class="up">▲ +'+diff.toFixed(0)+'</span>';
+  return '<span class="down">▼ '+diff.toFixed(0)+'</span>';
+}
+function updateKPI(eq){
+  if(st.tax>0) return; // 조세일 때는 drawTax가 갱신
+  document.getElementById('kPrice').textContent=eq.Q>0?eq.P.toFixed(0):'-';
+  document.getElementById('kQty').textContent=eq.Q>0?eq.Q.toFixed(0):'-';
+  document.getElementById('kPriceD').innerHTML=delta(eq.P,P0);
+  document.getElementById('kQtyD').innerHTML=delta(eq.Q,Q0);
+  if(st.pc==='none'){
+    var noteParts=[];
+    if(st.shiftD>0) noteParts.push('수요 증가');
+    else if(st.shiftD<0) noteParts.push('수요 감소');
+    if(st.shiftS>0) noteParts.push('공급 증가');
+    else if(st.shiftS<0) noteParts.push('공급 감소');
+    if(noteParts.length===0)
+      document.getElementById('eqNote').innerHTML='초기 균형 (P*=50, Q*=50) 기준 상태입니다.';
+    else
+      document.getElementById('eqNote').innerHTML='<b>'+noteParts.join(' + ')+'</b> → 균형가격 '+eq.P.toFixed(0)+', 균형거래량 '+eq.Q.toFixed(0)+'. (회색 E₀과 비교)';
+  }
+}
+
+/* ===== UI 동기화 ===== */
+function syncLabels(){
+  document.getElementById('dShiftV').textContent=st.shiftD>0?'+'+st.shiftD:st.shiftD;
+  document.getElementById('sShiftV').textContent=st.shiftS>0?'+'+st.shiftS:st.shiftS;
+  document.getElementById('pLineV').textContent=st.pLine;
+  document.getElementById('pcV').textContent=st.pcPrice;
+  document.getElementById('taxV').textContent=st.tax;
+  document.getElementById('dSlopeV').textContent=elLabel(st.b);
+  document.getElementById('sSlopeV').textContent=elLabel(st.s);
+}
+function elLabel(v){ return v<0.7?'탄력적(완만)':(v>1.4?'비탄력적(가파름)':'보통'); }
+
+function render(){ syncLabels(); draw(); }
+
+/* ===== 이벤트 ===== */
+document.querySelectorAll('.tab').forEach(function(t){
+  t.onclick=function(){
+    document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('active');});
+    t.classList.add('active'); st.tab=t.dataset.tab; applyTabUI(); render();
+  };
+});
+function applyTabUI(){
+  var market=(st.tab==='market');
+  document.getElementById('advBox').classList.toggle('hide',!market);
+  document.getElementById('kpiBox').classList.toggle('hide',!market);
+  document.getElementById('presetBox').classList.toggle('hide',!market);
+  document.getElementById('priceBox').classList.toggle('hide',market);
+  // 단독 탭에서는 다른 곡선 슬라이더 숨김
+  document.getElementById('sShiftWrap').classList.toggle('hide', st.tab==='demand');
+  document.getElementById('dShiftWrap').classList.toggle('hide', st.tab==='supply');
+  document.getElementById('sSlopeWrap').classList.toggle('hide', st.tab==='demand');
+  document.getElementById('dSlopeWrap').classList.toggle('hide', st.tab==='supply');
+  document.getElementById('taxNote').classList.add('hide');
+}
+
+document.getElementById('dShift').oninput=function(){ st.shiftD=+this.value; render(); };
+document.getElementById('sShift').oninput=function(){ st.shiftS=+this.value; render(); };
+document.getElementById('dSlope').oninput=function(){ st.b=slopeFromSlider(+this.value); render(); };
+document.getElementById('sSlope').oninput=function(){ st.s=slopeFromSlider(+this.value); render(); };
+document.getElementById('pLine').oninput=function(){ st.pLine=+this.value; render(); };
+document.getElementById('pcPrice').oninput=function(){ st.pcPrice=+this.value; render(); };
+document.getElementById('tax').oninput=function(){ st.tax=+this.value; document.getElementById('taxNote').classList.toggle('hide',st.tax===0); render(); };
+document.getElementById('surplus').onchange=function(){ st.surplus=this.checked; render(); };
+
+document.querySelectorAll('.seg button').forEach(function(b){
+  b.onclick=function(){
+    document.querySelectorAll('.seg button').forEach(function(x){x.classList.remove('on');});
+    b.classList.add('on'); st.pc=b.dataset.pc;
+    document.getElementById('pcWrap').style.display = st.pc==='none'?'none':'block';
+    render();
+  };
+});
+
+/* 프리셋 — 부드러운 애니메이션 */
+function animateShift(which, target){
+  var startD=st.shiftD, startS=st.shiftS;
+  var t0=performance.now(), dur=550;
+  function step(now){
+    var k=Math.min(1,(now-t0)/dur);
+    var e=1-Math.pow(1-k,3);
+    if(which==='d'){ st.shiftD=Math.round(startD+(target-startD)*e);
+      document.getElementById('dShift').value=st.shiftD; }
+    else { st.shiftS=Math.round(startS+(target-startS)*e);
+      document.getElementById('sShift').value=st.shiftS; }
+    render();
+    if(k<1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+var PRE={dUp:['d',22],dUp2:['d',16],dDn:['d',-20],dDn2:['d',-16],
+         sUp:['s',22],sUp2:['s',18],sDn:['s',-20],sDn2:['s',-18]};
+document.querySelectorAll('.preset').forEach(function(b){
+  b.onclick=function(){ var p=PRE[b.dataset.pre]; animateShift(p[0],p[1]); };
+});
+
+/* 전체 초기화 */
+document.getElementById('reset').onclick=function(){
+  var tab=st.tab; st=defaults(); st.tab=tab;
+  document.getElementById('dShift').value=0;
+  document.getElementById('sShift').value=0;
+  document.getElementById('dSlope').value=100;
+  document.getElementById('sSlope').value=100;
+  document.getElementById('pLine').value=50;
+  document.getElementById('pcPrice').value=50;
+  document.getElementById('tax').value=0;
+  document.getElementById('surplus').checked=false;
+  document.querySelectorAll('.seg button').forEach(function(x){x.classList.remove('on');});
+  document.querySelector('.seg button[data-pc=none]').classList.add('on');
+  document.getElementById('pcWrap').style.display='none';
+  document.getElementById('taxNote').classList.add('hide');
+  render();
+};
+
+applyTabUI(); render();
+</script>
+</body>
+</html>
